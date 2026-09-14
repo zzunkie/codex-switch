@@ -1,0 +1,17 @@
+.DS_Store
+.build/
+dist/
+work/
+*.app/
+*.zip
+*.log
+verification.json
+.env
+.env.*
+auth.json
+accounts.json
+settings.json
+config-link.json
+config-backups/
+accounts/
+*.sqlite*
