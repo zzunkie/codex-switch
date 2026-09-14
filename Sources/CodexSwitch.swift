@@ -251,12 +251,68 @@ struct AppState: Decodable {
     func terminateHelper() { quitting = true; try? input?.close(); process?.terminate() }
 }
 
-private let accent = Color(nsColor: NSColor(name: nil) { appearance in
-    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        ? NSColor(red: 0.40, green: 0.86, blue: 0.69, alpha: 1)
-        : NSColor(red: 0.03, green: 0.47, blue: 0.36, alpha: 1)
-})
-private let hairline = Color.primary.opacity(0.08)
+private enum Palette {
+    static let graphite = Color(red: 0.075, green: 0.12, blue: 0.11)
+    static let ivory = Color(red: 0.96, green: 0.95, blue: 0.90)
+    static let jade = Color(red: 0.59, green: 0.86, blue: 0.75)
+    static let secondary = Color(red: 0.70, green: 0.77, blue: 0.73)
+    static let muted = Color(red: 0.52, green: 0.63, blue: 0.58)
+    static let amber = Color(red: 0.96, green: 0.75, blue: 0.44)
+    static let coral = Color(red: 1.0, green: 0.58, blue: 0.54)
+}
+private let accent = Palette.jade
+private let hairline = Palette.ivory.opacity(0.10)
+
+// One native backdrop for the whole panel; cards share it instead of each
+// running a separate blur. Accessibility settings can remove transparency.
+private struct NativeGlass: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.appearance = NSAppearance(named: .darkAqua)
+        return view
+    }
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
+private struct PanelGlass: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        ZStack {
+            if reduceTransparency { Palette.graphite }
+            else {
+                NativeGlass()
+                Palette.graphite.opacity(0.82)
+                LinearGradient(colors: [Palette.jade.opacity(0.16), .clear, Palette.ivory.opacity(0.025)],
+                               startPoint: .topTrailing, endPoint: .bottomLeading)
+            }
+        }.allowsHitTesting(false)
+    }
+}
+
+private struct CardGlass: View {
+    var active: Bool
+    var hover: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        let rim = contrast == .increased ? 0.55 : 0.22
+        ZStack {
+            if reduceTransparency { shape.fill(Palette.graphite) }
+            shape.fill(LinearGradient(
+                colors: [active ? Palette.jade.opacity(0.14) : Palette.ivory.opacity(hover ? 0.11 : 0.075),
+                         Palette.ivory.opacity(active ? 0.035 : 0.025)],
+                startPoint: .topLeading, endPoint: .bottomTrailing))
+            shape.strokeBorder(LinearGradient(
+                colors: [active ? Palette.jade.opacity(0.58) : Palette.ivory.opacity(rim),
+                         active ? Palette.jade.opacity(0.15) : Palette.ivory.opacity(0.055)],
+                startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+        }.allowsHitTesting(false)
+    }
+}
 
 enum BrandAssets {
     static let icon: NSImage = {
@@ -280,8 +336,8 @@ struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary).frame(width: 26, height: 26)
-                .background(hover ? Color.primary.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 5))
+                .foregroundStyle(Palette.secondary).frame(width: 26, height: 26)
+                .background(hover ? Palette.ivory.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 5))
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).onHover { hover = $0 }.help(title).accessibilityLabel(title)
     }
@@ -291,7 +347,7 @@ struct QuotaView: View {
     var window: QuotaWindow
     var compact = false
     var emphasized = true
-    var tint: Color { window.remainingPercent <= 10 ? .red : window.remainingPercent <= 25 ? .orange : emphasized ? accent : .secondary }
+    var tint: Color { window.remainingPercent <= 10 ? Palette.coral : window.remainingPercent <= 25 ? Palette.amber : emphasized ? accent : Palette.secondary }
     var exactReset: String {
         guard let time = window.resetsAt else { return "초기화 시간 미제공" }
         let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "M/d HH:mm"
@@ -300,7 +356,7 @@ struct QuotaView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(window.title).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                Text(window.title).font(.system(size: 11, weight: .medium)).foregroundStyle(Palette.secondary)
                 Spacer(minLength: 3)
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text("\(Int(window.remainingPercent))").font(.system(size: compact ? 13 : 16, weight: .semibold, design: .rounded)).monospacedDigit()
@@ -309,11 +365,11 @@ struct QuotaView: View {
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.07))
+                    Capsule().fill(Palette.ivory.opacity(0.08))
                     Capsule().fill(tint).frame(width: max(0, geometry.size.width * min(100, max(0, window.remainingPercent)) / 100))
                 }
             }.frame(height: 3)
-            Text(exactReset).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            Text(exactReset).font(.system(size: 10)).foregroundStyle(Palette.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }.help(window.resetText)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(window.title), \(Int(window.remainingPercent))퍼센트 남음, \(exactReset)")
@@ -344,7 +400,7 @@ struct AccountCard: View {
                         if !account.planName.isEmpty {
                             Text(account.planName).font(.system(size: 9, weight: .semibold)).tracking(0.3)
                                 .padding(.horizontal, 4).padding(.vertical, 2)
-                                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 3))
+                                .background(Palette.ivory.opacity(0.07), in: RoundedRectangle(cornerRadius: 3))
                         }
                         if account.isCurrent == true { Text("Codex 로그인").font(.system(size: 10)) }
                         if effective { Text("요청 계정").font(.system(size: 10, weight: .medium)).foregroundStyle(accent) }
@@ -361,7 +417,7 @@ struct AccountCard: View {
                                 }.fixedSize().frame(minHeight: 18).contentShape(Rectangle())
                             }.buttonStyle(.plain).accessibilityLabel("\(account.displayName) 모델별 한도 \(expanded ? "접기" : "펼치기")")
                         }
-                    }.foregroundStyle(.secondary)
+                    }.foregroundStyle(Palette.secondary)
                 }
                 Spacer(minLength: 0)
                 if account.refreshing == true { ProgressView().controlSize(.mini) }
@@ -369,14 +425,14 @@ struct AccountCard: View {
                     Button { model.command("select", ["id": account.id]) } label: {
                         Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 16, weight: .regular))
-                            .foregroundStyle(selected ? accent : Color.secondary.opacity(hover ? 0.7 : 0.3))
+                            .foregroundStyle(selected ? accent : Palette.secondary.opacity(hover ? 0.7 : 0.3))
                             .frame(width: 26, height: 26).contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(selectionDisabled)
                         .accessibilityLabel("\(account.displayName) 선택").accessibilityIdentifier("route-\(account.id)")
                 }
                 if account.isCurrent != true && account.status != "loggingIn" {
                     Menu { Button("계정 제거…", role: .destructive) { model.remove(account) } }
-                        label: { Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(.secondary) }
+                        label: { Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Palette.secondary) }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 20, height: 26)
                 }
             }
@@ -395,13 +451,13 @@ struct AccountCard: View {
                     if let secondary = bucket.secondary { QuotaView(window: secondary, emphasized: effective) }
                 }
                 if bucket.primary == nil && bucket.secondary == nil {
-                    Text(bucket.credits.map { "크레딧 \($0)" } ?? "한도 정보 없음").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(bucket.credits.map { "크레딧 \($0)" } ?? "한도 정보 없음").font(.system(size: 11)).foregroundStyle(Palette.secondary)
                 }
                 if expanded {
                     VStack(spacing: 10) {
                         ForEach(account.limits.filter { $0.id != bucket.id }) { extra in
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(extra.name).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                                Text(extra.name).font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.secondary)
                                 HStack(spacing: 14) { if let w = extra.primary { QuotaView(window: w, compact: true, emphasized: effective) }; if let w = extra.secondary { QuotaView(window: w, compact: true, emphasized: effective) } }
                             }
                         }
@@ -409,15 +465,14 @@ struct AccountCard: View {
                 }
             } else {
                 Text(account.status == "loading" || account.status == "idle" ? "사용량 조회 중…" : account.error ?? "사용량 미확인")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).padding(.vertical, 8)
+                    .font(.system(size: 11)).foregroundStyle(Palette.secondary).padding(.vertical, 8)
             }
-            if account.ordinaryUsageAllowed == false { Text("한도 소진").font(.system(size: 10, weight: .medium)).foregroundStyle(.orange) }
-            if let error = account.error, !account.limits.isEmpty { Text(error).font(.system(size: 10)).foregroundStyle(.orange) }
+            if account.ordinaryUsageAllowed == false { Text("한도 소진").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.amber) }
+            if let error = account.error, !account.limits.isEmpty { Text(error).font(.system(size: 10)).foregroundStyle(Palette.amber) }
 
         }
         .padding(10)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(effective ? accent.opacity(0.40) : Color.primary.opacity(hover ? 0.15 : 0.08), lineWidth: 1))
+        .background(CardGlass(active: effective, hover: hover))
         .onHover { hover = $0 }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hover)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: effective)
@@ -439,25 +494,26 @@ struct ConnectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
-                Circle().fill(model.codexRunning ? accent : Color.secondary).frame(width: 5, height: 5)
+                Circle().fill(model.codexRunning ? accent : Palette.muted).frame(width: 5, height: 5)
                 Text(model.codexRunning ? "Codex 실행 중" : "Codex 종료됨").font(.system(size: 11, weight: .medium))
                 Spacer()
-                Text("라우팅").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("라우팅").font(.system(size: 11)).foregroundStyle(Palette.secondary)
                 Toggle("계정 라우팅", isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") }))
                     .toggleStyle(.switch).labelsHidden().controlSize(.mini).tint(accent)
                     .disabled(!model.state.ready || model.busy).accessibilityLabel("계정 라우팅")
             }
             HStack(spacing: 6) {
                 Text(status).font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(model.state.lastError != nil ? Color.orange : .secondary)
+                    .foregroundStyle(model.state.lastError != nil ? Palette.amber : Palette.secondary)
                 if let modelName = model.state.lastModel, model.state.enabled && verified {
-                    Text("·").foregroundStyle(.tertiary)
-                    Text(modelName).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                    Text("·").foregroundStyle(Palette.muted)
+                    Text(modelName).font(.system(size: 10)).foregroundStyle(Palette.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 0)
             }
         }.padding(.horizontal, 11).padding(.vertical, 8)
-        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+        .background(Palette.graphite.opacity(0.30), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(hairline, lineWidth: 1))
         .help(model.state.enabled && model.state.lastCodexRequestAt == nil ? "아직 Codex 요청이 없습니다. 처음 연결했다면 Codex를 재시작해 주세요." : verified ? "최근 응답 \(Date(timeIntervalSince1970: model.state.lastResponseAt ?? 0).formatted(date: .omitted, time: .shortened))" : "모델 응답 미확인")
     }
 }
@@ -469,7 +525,7 @@ struct PanelView: View {
             HStack(spacing: 7) {
                 Image(nsImage: BrandAssets.icon).resizable().interpolation(.high).frame(width: 24, height: 24).accessibilityLabel("Codex Switch 로고")
                 Text("Codex Switch").font(.system(size: 13, weight: .semibold))
-                if model.state.demo { Text("DEMO").font(.system(size: 8, weight: .semibold)).foregroundStyle(.orange) }
+                if model.state.demo { Text("DEMO").font(.system(size: 8, weight: .semibold)).foregroundStyle(Palette.amber) }
                 Spacer()
                 if model.busy { ProgressView().controlSize(.small).frame(width: 26, height: 26) }
                 else { IconButton(symbol: "arrow.clockwise", title: "사용량 새로고침") { model.updateCodexStatus(); model.command("refresh") }.disabled(!model.state.ready) }
@@ -477,13 +533,13 @@ struct PanelView: View {
                     Toggle("Mac 로그인 시 실행", isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
                     Divider()
                     Button("종료…") { model.quit() }
-                } label: { Image(systemName: "ellipsis").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).frame(width: 26, height: 26) }
+                } label: { Image(systemName: "ellipsis").font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.secondary).frame(width: 26, height: 26) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 26).accessibilityLabel("설정")
             }.padding(.horizontal, 12).padding(.vertical, 9)
             ConnectionView(model: model).padding(.horizontal, 10)
             if let message = model.error ?? model.state.lastError {
                 HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "exclamationmark.circle").foregroundStyle(.orange)
+                    Image(systemName: "exclamationmark.circle").foregroundStyle(Palette.amber)
                     Text(message).font(.system(size: 10)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     Button { model.error = nil; model.command("dismissError"); model.stateDidChange?() } label: { Image(systemName: "xmark").font(.system(size: 9)) }.buttonStyle(.plain).accessibilityLabel("오류 닫기")
@@ -491,9 +547,9 @@ struct PanelView: View {
             }
             HStack(spacing: 5) {
                 Text("계정").font(.system(size: 11, weight: .semibold))
-                Text("\(model.state.accounts.filter { $0.status != "loggingIn" }.count)").font(.system(size: 10, weight: .medium)).foregroundStyle(.tertiary)
+                Text("\(model.state.accounts.filter { $0.status != "loggingIn" }.count)").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.muted)
                 Spacer()
-                Text("남은 한도").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("남은 한도").font(.system(size: 10)).foregroundStyle(Palette.secondary)
             }.padding(.horizontal, 13).padding(.top, 10).padding(.bottom, 6)
             ScrollView {
                 VStack(spacing: 6) {
@@ -512,14 +568,16 @@ struct PanelView: View {
                 Spacer()
                 if let updated = model.state.accounts.compactMap({ $0.updatedAt }).max() {
                     Text("\(Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)) 갱신")
-                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                        .font(.system(size: 10)).foregroundStyle(Palette.secondary)
                         .help(model.state.ready ? "로컬 프록시 실행 중" : "로컬 프록시 중지됨")
                 }
 
             }.padding(.horizontal, 13).padding(.vertical, 9)
         }
         .frame(width: 348, height: model.panelHeight)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .foregroundStyle(Palette.ivory)
+        .background(PanelGlass())
+        .preferredColorScheme(.dark)
         .onAppear { model.refreshIfNeeded() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in model.updateCodexStatus() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in model.updateCodexStatus() }
@@ -543,6 +601,7 @@ struct PanelView: View {
             button.action = #selector(togglePopover)
         }
         popover.behavior = .transient
+        popover.appearance = NSAppearance(named: .darkAqua)
         popover.delegate = self
         popover.contentSize = NSSize(width: 348, height: model.panelHeight)
         popover.contentViewController = NSHostingController(rootView: PanelView(model: model))

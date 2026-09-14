@@ -4,6 +4,8 @@
 
 A small macOS menu bar app for choosing which signed-in ChatGPT account handles Codex requests and checking each account's remaining usage.
 
+Graphite, ivory, and jade from the app icon, with a native glass backdrop and translucent account cards. A single system blur serves the panel; Reduce Transparency switches to an opaque background.
+
 SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface is currently in Korean. [한국어 안내](README.ko.md)
 
 ## Install
