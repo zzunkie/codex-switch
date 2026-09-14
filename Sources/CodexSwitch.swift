@@ -255,7 +255,7 @@ private enum Palette {
     static let graphite = Color(red: 0.075, green: 0.12, blue: 0.11)
     static let ivory = Color(red: 0.96, green: 0.95, blue: 0.90)
     static let jade = Color(red: 0.59, green: 0.86, blue: 0.75)
-    static let secondary = Color(red: 0.70, green: 0.77, blue: 0.73)
+    static let secondary = Color(red: 0.81, green: 0.86, blue: 0.82)
     static let muted = Color(red: 0.52, green: 0.63, blue: 0.58)
     static let amber = Color(red: 0.96, green: 0.75, blue: 0.44)
     static let coral = Color(red: 1.0, green: 0.58, blue: 0.54)
@@ -284,9 +284,20 @@ private struct PanelGlass: View {
             if reduceTransparency { Palette.graphite }
             else {
                 NativeGlass()
-                Palette.graphite.opacity(0.82)
-                LinearGradient(colors: [Palette.jade.opacity(0.16), .clear, Palette.ivory.opacity(0.025)],
+                Palette.graphite.opacity(0.60)
+                LinearGradient(colors: [Palette.jade.opacity(0.17), .clear, Color.black.opacity(0.12)],
                                startPoint: .topTrailing, endPoint: .bottomLeading)
+                // A broad reflection and a fine inner rim suggest polished
+                // glass without another blur, image capture, or moving shader.
+                LinearGradient(stops: [
+                    .init(color: Palette.ivory.opacity(0.15), location: 0),
+                    .init(color: Palette.ivory.opacity(0.045), location: 0.28),
+                    .init(color: .clear, location: 0.29),
+                    .init(color: .clear, location: 1)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(LinearGradient(colors: [Palette.ivory.opacity(0.58), Palette.ivory.opacity(0.04), Palette.jade.opacity(0.24)],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
             }
         }.allowsHitTesting(false)
     }
@@ -299,17 +310,23 @@ private struct CardGlass: View {
     @Environment(\.colorSchemeContrast) private var contrast
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        let rim = contrast == .increased ? 0.55 : 0.22
+        let rim = contrast == .increased ? 0.70 : 0.48
         ZStack {
             if reduceTransparency { shape.fill(Palette.graphite) }
             shape.fill(LinearGradient(
-                colors: [active ? Palette.jade.opacity(0.14) : Palette.ivory.opacity(hover ? 0.11 : 0.075),
-                         Palette.ivory.opacity(active ? 0.035 : 0.025)],
+                colors: [active ? Palette.jade.opacity(0.11) : Palette.ivory.opacity(hover ? 0.07 : 0.035),
+                         Color.black.opacity(active ? 0.025 : 0.045)],
                 startPoint: .topLeading, endPoint: .bottomTrailing))
             shape.strokeBorder(LinearGradient(
-                colors: [active ? Palette.jade.opacity(0.58) : Palette.ivory.opacity(rim),
-                         active ? Palette.jade.opacity(0.15) : Palette.ivory.opacity(0.055)],
+                stops: [
+                    .init(color: active ? Palette.jade.opacity(0.80) : Palette.ivory.opacity(rim), location: 0),
+                    .init(color: Palette.ivory.opacity(0.08), location: 0.40),
+                    .init(color: Color.black.opacity(0.18), location: 0.65),
+                    .init(color: active ? Palette.jade.opacity(0.30) : Palette.ivory.opacity(0.20), location: 1)
+                ],
                 startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+            shape.inset(by: 1).strokeBorder(LinearGradient(colors: [Palette.ivory.opacity(0.13), .clear],
+                                                           startPoint: .top, endPoint: .bottom), lineWidth: 1)
         }.allowsHitTesting(false)
     }
 }
