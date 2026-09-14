@@ -20,3 +20,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: zsh build.sh
       - run: '"dist/Codex Switch.app/Contents/Resources/Runtime/node" --test Tests/*.test.mjs'
+      - run: zsh Tools/test-localization.sh

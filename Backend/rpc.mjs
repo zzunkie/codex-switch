@@ -84,7 +84,7 @@ export class CodexRPC extends EventEmitter {
         clientInfo: {
           name: "codex_switch",
           title: "Codex Switch",
-          version: "0.4.1",
+          version: "0.4.2",
         },
       },
       20000,

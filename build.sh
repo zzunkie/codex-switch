@@ -28,7 +28,7 @@ runtime_source="$cache_dir/$runtime_name"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources/Backend" "$app_path/Contents/Resources/Runtime"
 xcrun swiftc -O -swift-version 5 -target "$architecture-apple-macosx14.0" -parse-as-library \
   -framework AppKit -framework SwiftUI -framework ServiceManagement \
-  "$project_dir/Sources/CodexSwitch.swift" -o "$app_path/Contents/MacOS/CodexSwitch"
+  "$project_dir/Sources/"*.swift -o "$app_path/Contents/MacOS/CodexSwitch"
 cp "$project_dir/Backend/"*.mjs "$app_path/Contents/Resources/Backend/"
 cp "$runtime_source/bin/node" "$app_path/Contents/Resources/Runtime/node"
 cp "$runtime_source/LICENSE" "$app_path/Contents/Resources/Runtime/LICENSE"
@@ -39,11 +39,13 @@ cat > "$app_path/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>CodexSwitch</string>
 <key>CFBundleIdentifier</key><string>local.codex-switch</string>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
+<key>CFBundleLocalizations</key><array><string>en</string><string>ko</string></array>
 <key>CFBundleName</key><string>Codex Switch</string>
 <key>CFBundleDisplayName</key><string>Codex Switch</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.4.1</string>
-<key>CFBundleVersion</key><string>6</string>
+<key>CFBundleShortVersionString</key><string>0.4.2</string>
+<key>CFBundleVersion</key><string>7</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
@@ -51,6 +53,7 @@ cat > "$app_path/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 </dict></plist>
 PLIST
+cp -R "$project_dir/Resources/"*.lproj "$app_path/Contents/Resources/"
 cp "$project_dir/Assets/"*.png "$app_path/Contents/Resources/"
 xcrun swift "$project_dir/Tools/icon.swift" "$app_path/Contents/Resources" "$project_dir/Assets"
 /usr/bin/codesign --force --sign - "$app_path/Contents/Resources/Runtime/node"

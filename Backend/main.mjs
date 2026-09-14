@@ -274,7 +274,15 @@ if (demo) {
       email: "main@example.com",
       plan: "pro",
       status: "ready",
-      limits: pro(87),
+      limits: [
+        ...pro(87),
+        {
+          id: "codex_spark",
+          name: "Codex Spark",
+          primary: weekly(64),
+          secondary: null,
+        },
+      ],
       updatedAt: now,
     },
     {

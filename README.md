@@ -4,9 +4,11 @@
 
 A small macOS menu bar app for choosing which signed-in ChatGPT account handles Codex requests and checking each account's remaining usage.
 
-Bright translucent glass with a faint jade tint, dark text, fine beveled rims, and a static light reflection. The existing macOS popover material supplies the blur; no additional blur view is layered on top. Reduce Transparency switches to an opaque light background.
+A bright translucent panel with a faint jade tint, dark text, fine beveled rims, and a static light reflection. The existing macOS popover material supplies the blur; no additional blur view is layered on top. Reduce Transparency switches to an opaque light background.
 
-SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface is currently in Korean. [한국어 안내](README.ko.md)
+SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface follows the Mac’s language preferences: Korean or English, with English as the fallback. Dates and times follow regional settings. Reopen the app after changing its language in macOS. [한국어 안내](README.ko.md)
+
+On macOS 14/15 this is standard translucency with static edge highlights. Dynamic optical refraction is not implemented. Apple’s native Liquid Glass API requires macOS 26 or later.
 
 ## Install
 
@@ -77,6 +79,7 @@ Run the tests with Node.js 24+, or use the packaged runtime after building:
 
 ```sh
 node --test Tests/*.test.mjs
+zsh Tools/test-localization.sh # macOS language selection and error formatting
 # or
 "dist/Codex Switch.app/Contents/Resources/Runtime/node" --test Tests/*.test.mjs
 ```

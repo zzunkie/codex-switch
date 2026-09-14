@@ -8,18 +8,18 @@ struct QuotaWindow: Decodable {
     var durationMins: Double?
     var resetsAt: Double?
     var title: String {
-        guard let minutes = durationMins else { return "사용 한도" }
-        if minutes == 10080 { return "주간" }
-        if minutes >= 1440 { return "\(Int(minutes / 1440))일" }
-        if minutes >= 60 { return "\(Int(minutes / 60))시간" }
-        return "\(Int(minutes))분"
+        guard let minutes = durationMins else { return L("사용 한도") }
+        if minutes == 10080 { return L("주간") }
+        if minutes >= 1440 { return L("%d일", Int(minutes / 1440)) }
+        if minutes >= 60 { return L("%d시간", Int(minutes / 60)) }
+        return L("%d분", Int(minutes))
     }
     var resetText: String {
-        guard let resetsAt else { return "초기화 시간 미제공" }
+        guard let resetsAt else { return L("초기화 시간 미제공") }
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale.autoupdatingCurrent
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: Date(timeIntervalSince1970: resetsAt), relativeTo: Date()) + " 초기화"
+        return L("%@ 초기화", formatter.localizedString(for: Date(timeIntervalSince1970: resetsAt), relativeTo: Date()))
     }
 }
 struct QuotaBucket: Decodable, Identifiable {
@@ -44,7 +44,7 @@ struct Account: Decodable, Identifiable {
     var ordinaryUsageAllowed: Bool?
     var loginURL: String?
     var userCode: String?
-    var displayName: String { email ?? label }
+    var displayName: String { email ?? L(label) }
     var planName: String {
         switch plan {
         case "pro": return "PRO"
@@ -76,7 +76,7 @@ struct AppState: Decodable {
     var lastErrorAt: Double?
     var lastCodexRequestAt: Double?
     var lastProbeResponseAt: Double?
-    var selectedName: String { accounts.first(where: { $0.id == selected })?.displayName ?? "현재 Codex 계정" }
+    var selectedName: String { accounts.first(where: { $0.id == selected })?.displayName ?? L("현재 Codex 계정") }
 }
 
 @MainActor final class AppModel: ObservableObject {
@@ -139,17 +139,17 @@ struct AppState: Decodable {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.process = nil
-                for continuation in self.pending.values { continuation.resume(throwing: self.failure("로컬 연결이 종료됐습니다.")) }
+                for continuation in self.pending.values { continuation.resume(throwing: self.failure(L("로컬 연결이 종료됐습니다."))) }
                 self.pending.removeAll()
                 guard !self.quitting else { return }
                 self.state.ready = false
                 if self.restartCount < 2 {
                     self.restartCount += 1
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.start() }
-                } else { self.error = "로컬 서비스를 다시 시작하지 못했습니다. 앱을 다시 열어 주세요." }
+                } else { self.error = L("로컬 서비스를 다시 시작하지 못했습니다. 앱을 다시 열어 주세요.") }
             }
         }
-        do { try child.run(); process = child } catch { self.error = "내장 실행 환경을 시작하지 못했습니다." }
+        do { try child.run(); process = child } catch { self.error = L("내장 실행 환경을 시작하지 못했습니다.") }
     }
     private func failure(_ message: String) -> NSError { NSError(domain: "CodexSwitch", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     private func receive(_ data: Data) {
@@ -169,7 +169,7 @@ struct AppState: Decodable {
         }
     }
     func request(_ method: String, _ params: [String: Any] = [:]) async throws -> [String: Any] {
-        guard process?.isRunning == true, let input else { throw failure("로컬 서비스가 준비되지 않았습니다.") }
+        guard process?.isRunning == true, let input else { throw failure(L("로컬 서비스가 준비되지 않았습니다.")) }
         requestID += 1
         let id = requestID
         return try await withCheckedThrowingContinuation { continuation in
@@ -178,10 +178,10 @@ struct AppState: Decodable {
                 var data = try JSONSerialization.data(withJSONObject: ["id": id, "method": method, "params": params])
                 data.append(10)
                 try input.write(contentsOf: data)
-            } catch { pending.removeValue(forKey: id)?.resume(throwing: failure("로컬 서비스에 연결하지 못했습니다.")) }
+            } catch { pending.removeValue(forKey: id)?.resume(throwing: failure(L("로컬 서비스에 연결하지 못했습니다."))) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 65) { [weak self] in
                 guard let self else { return }
-                self.pending.removeValue(forKey: id)?.resume(throwing: self.failure("응답이 늦어지고 있습니다. 다시 시도해 주세요."))
+                self.pending.removeValue(forKey: id)?.resume(throwing: self.failure(L("응답이 늦어지고 있습니다. 다시 시도해 주세요.")))
             }
         }
     }
@@ -208,15 +208,15 @@ struct AppState: Decodable {
         }
     }
     func openLoginURL(_ url: URL) {
-        guard url.scheme == "https", ["auth.openai.com", "chatgpt.com", "openai.com"].contains(url.host ?? "") else { error = "로그인 주소를 확인하지 못했습니다."; return }
+        guard url.scheme == "https", ["auth.openai.com", "chatgpt.com", "openai.com"].contains(url.host ?? "") else { error = L("로그인 주소를 확인하지 못했습니다."); return }
         NSWorkspace.shared.open(url)
     }
     func remove(_ account: Account) {
         let alert = NSAlert()
-        alert.messageText = "이 앱에서 계정을 제거할까요?"
-        alert.informativeText = "\(account.displayName)의 로그인 정보를 Codex Switch에서 제거합니다."
-        alert.addButton(withTitle: "제거")
-        alert.addButton(withTitle: "취소")
+        alert.messageText = L("이 앱에서 계정을 제거할까요?")
+        alert.informativeText = L("%@의 로그인 정보를 Codex Switch에서 제거합니다.", account.displayName)
+        alert.addButton(withTitle: L("제거"))
+        alert.addButton(withTitle: L("취소"))
         if alert.runModal() == .alertFirstButtonReturn { command("remove", ["id": account.id]) }
     }
     func setLoginAtStartup(_ enabled: Bool) {
@@ -224,24 +224,24 @@ struct AppState: Decodable {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             loginAtStartup = SMAppService.mainApp.status == .enabled
             if enabled && !loginAtStartup { SMAppService.openSystemSettingsLoginItems() }
-        } catch { self.error = "로그인 시 실행을 설정하지 못했습니다. 앱을 응용 프로그램 폴더에 넣은 뒤 다시 시도해 주세요." }
+        } catch { self.error = L("로그인 시 실행을 설정하지 못했습니다. 앱을 응용 프로그램 폴더에 넣은 뒤 다시 시도해 주세요.") }
     }
     func quit() {
         if state.enabled || state.activeRequests > 0 {
             let alert = NSAlert()
-            alert.messageText = "Codex 연결을 해제하고 종료할까요?"
+            alert.messageText = L("Codex 연결을 해제하고 종료할까요?")
             alert.informativeText = state.activeRequests > 0
-                ? "진행 중인 요청 \(state.activeRequests)개가 중단될 수 있습니다. 종료 후 Codex를 다시 시작하면 원래 연결로 돌아갑니다."
-                : "원래 Codex 설정을 복원합니다. 종료 후 Codex를 다시 시작해 주세요."
-            alert.addButton(withTitle: "해제하고 종료")
-            alert.addButton(withTitle: "취소")
+                ? L("진행 중인 요청 %d개가 중단될 수 있습니다. 종료 후 Codex를 다시 시작하면 원래 연결로 돌아갑니다.", state.activeRequests)
+                : L("원래 Codex 설정을 복원합니다. 종료 후 Codex를 다시 시작해 주세요.")
+            alert.addButton(withTitle: L("해제하고 종료"))
+            alert.addButton(withTitle: L("취소"))
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
         quitting = true
         Task {
             do { _ = try await request("disable") } catch {
                 quitting = false
-                self.error = "연결 설정을 복원하지 못했습니다. 설정 충돌을 확인한 뒤 종료해 주세요."
+                self.error = L("연결 설정을 복원하지 못했습니다. 설정 충돌을 확인한 뒤 종료해 주세요.")
                 return
             }
             try? input?.close()
@@ -355,9 +355,9 @@ struct QuotaView: View {
     var emphasized = true
     var tint: Color { window.remainingPercent <= 10 ? Palette.coral : window.remainingPercent <= 25 ? Palette.amber : emphasized ? accent : Palette.secondary }
     var exactReset: String {
-        guard let time = window.resetsAt else { return "초기화 시간 미제공" }
-        let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "M/d HH:mm"
-        return f.string(from: Date(timeIntervalSince1970: time)) + " 초기화"
+        guard let time = window.resetsAt else { return L("초기화 시간 미제공") }
+        let f = DateFormatter(); f.locale = Locale.autoupdatingCurrent; f.setLocalizedDateFormatFromTemplate("Mdjm")
+        return L("%@ 초기화", f.string(from: Date(timeIntervalSince1970: time)))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -378,7 +378,7 @@ struct QuotaView: View {
             Text(exactReset).font(.system(size: 10)).foregroundStyle(Palette.secondary).lineLimit(1).minimumScaleFactor(0.8)
         }.help(window.resetText)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(window.title), \(Int(window.remainingPercent))퍼센트 남음, \(exactReset)")
+        .accessibilityLabel(L("%@, %d퍼센트 남음, %@", window.title, Int(window.remainingPercent), exactReset))
     }
 }
 
@@ -400,7 +400,7 @@ struct AccountCard: View {
                         Text(account.displayName).font(.system(size: 12, weight: .semibold)).lineLimit(1).truncationMode(.middle)
                             .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(selectionDisabled)
-                        .help("이 계정으로 요청").accessibilityLabel("\(account.displayName) 선택")
+                        .help(L("이 계정으로 요청")).accessibilityLabel(L("%@ 선택", account.displayName))
                         .accessibilityIdentifier("account-name-\(account.id)")
                     HStack(spacing: 6) {
                         if !account.planName.isEmpty {
@@ -408,20 +408,20 @@ struct AccountCard: View {
                                 .padding(.horizontal, 4).padding(.vertical, 2)
                                 .background(Palette.graphite.opacity(0.045), in: RoundedRectangle(cornerRadius: 3))
                         }
-                        if account.isCurrent == true { Text("Codex 로그인").font(.system(size: 10)) }
-                        if effective { Text("요청 계정").font(.system(size: 10, weight: .medium)).foregroundStyle(accent) }
-                        else if selected { Text("선택됨").font(.system(size: 10)).foregroundStyle(accent) }
+                        if account.isCurrent == true { Text(L("Codex 로그인")).font(.system(size: 10)) }
+                        if effective { Text(L("요청 계정")).font(.system(size: 10, weight: .medium)).foregroundStyle(accent) }
+                        else if selected { Text(L("선택됨")).font(.system(size: 10)).foregroundStyle(accent) }
                         if account.limits.count > 1 {
                             Spacer(minLength: 0)
                             Button {
                                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) { model.toggleDetails(account.id) }
                             } label: {
                                 HStack(spacing: 3) {
-                                    Text("모델별 한도").font(.system(size: 10))
+                                    Text(L("모델별 한도")).font(.system(size: 10))
                                     Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
                                         .rotationEffect(.degrees(expanded ? 180 : 0))
                                 }.fixedSize().frame(minHeight: 18).contentShape(Rectangle())
-                            }.buttonStyle(.plain).accessibilityLabel("\(account.displayName) 모델별 한도 \(expanded ? "접기" : "펼치기")")
+                            }.buttonStyle(.plain).accessibilityLabel(L(expanded ? "%@ 모델별 한도 접기" : "%@ 모델별 한도 펼치기", account.displayName))
                         }
                     }.foregroundStyle(Palette.secondary)
                 }
@@ -434,21 +434,21 @@ struct AccountCard: View {
                             .foregroundStyle(selected ? accent : Palette.secondary.opacity(hover ? 0.7 : 0.3))
                             .frame(width: 26, height: 26).contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(selectionDisabled)
-                        .accessibilityLabel("\(account.displayName) 선택").accessibilityIdentifier("route-\(account.id)")
+                        .accessibilityLabel(L("%@ 선택", account.displayName)).accessibilityIdentifier("route-\(account.id)")
                 }
                 if account.isCurrent != true && account.status != "loggingIn" {
-                    Menu { Button("계정 제거…", role: .destructive) { model.remove(account) } }
+                    Menu { Button(L("계정 제거…"), role: .destructive) { model.remove(account) } }
                         label: { Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Palette.secondary) }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 20, height: 26)
                 }
             }
             if account.status == "loggingIn" {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("로그인 대기").font(.system(size: 11)) }
+                    HStack(spacing: 6) { ProgressView().controlSize(.mini); Text(L("로그인 대기")).font(.system(size: 11)) }
                     if let code = account.userCode { Text(code).font(.system(size: 13, weight: .medium, design: .monospaced)).textSelection(.enabled) }
                     HStack {
-                        if let text = account.loginURL, let url = URL(string: text) { Button("로그인 열기") { model.openLoginURL(url) }.controlSize(.small) }
-                        Button("취소") { model.command("cancelLogin") }.controlSize(.small)
+                        if let text = account.loginURL, let url = URL(string: text) { Button(L("로그인 열기")) { model.openLoginURL(url) }.controlSize(.small) }
+                        Button(L("취소")) { model.command("cancelLogin") }.controlSize(.small)
                     }
                 }
             } else if let bucket {
@@ -457,7 +457,7 @@ struct AccountCard: View {
                     if let secondary = bucket.secondary { QuotaView(window: secondary, emphasized: effective) }
                 }
                 if bucket.primary == nil && bucket.secondary == nil {
-                    Text(bucket.credits.map { "크레딧 \($0)" } ?? "한도 정보 없음").font(.system(size: 11)).foregroundStyle(Palette.secondary)
+                    Text(bucket.credits.map { L("크레딧 %@", L($0)) } ?? L("한도 정보 없음")).font(.system(size: 11)).foregroundStyle(Palette.secondary)
                 }
                 if expanded {
                     VStack(spacing: 10) {
@@ -470,11 +470,11 @@ struct AccountCard: View {
                     }.padding(.top, 2).transition(.opacity)
                 }
             } else {
-                Text(account.status == "loading" || account.status == "idle" ? "사용량 조회 중…" : account.error ?? "사용량 미확인")
+                Text(account.status == "loading" || account.status == "idle" ? L("사용량 조회 중…") : account.error.map { L($0) } ?? L("사용량 미확인"))
                     .font(.system(size: 11)).foregroundStyle(Palette.secondary).padding(.vertical, 8)
             }
-            if account.ordinaryUsageAllowed == false { Text("한도 소진").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.amber) }
-            if let error = account.error, !account.limits.isEmpty { Text(error).font(.system(size: 10)).foregroundStyle(Palette.amber) }
+            if account.ordinaryUsageAllowed == false { Text(L("한도 소진")).font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.amber) }
+            if let error = account.error, !account.limits.isEmpty { Text(L(error)).font(.system(size: 10)).foregroundStyle(Palette.amber) }
 
         }
         .padding(10)
@@ -490,23 +490,23 @@ struct ConnectionView: View {
     @ObservedObject var model: AppModel
     var verified: Bool { model.state.lastResponseAt != nil && model.state.lastResponseAccount == model.state.selected }
     var status: String {
-        if !model.state.ready { return "프록시 시작 중" }
-        if model.state.lastError != nil { return "요청 오류" }
-        if !model.state.enabled { return "기본 연결" }
-        if model.state.activeRequests > 0 { return "요청 \(model.state.activeRequests)개 처리 중" }
-        if model.state.lastCodexRequestAt == nil { return "Codex 연결 대기" }
-        return verified ? "응답 확인" : "응답 미확인"
+        if !model.state.ready { return L("프록시 시작 중") }
+        if model.state.lastError != nil { return L("요청 오류") }
+        if !model.state.enabled { return L("기본 연결") }
+        if model.state.activeRequests > 0 { return L("요청 %d개 처리 중", model.state.activeRequests) }
+        if model.state.lastCodexRequestAt == nil { return L("Codex 연결 대기") }
+        return verified ? L("응답 확인") : L("응답 미확인")
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
                 Circle().fill(model.codexRunning ? accent : Palette.muted).frame(width: 5, height: 5)
-                Text(model.codexRunning ? "Codex 실행 중" : "Codex 종료됨").font(.system(size: 11, weight: .medium))
+                Text(model.codexRunning ? L("Codex 실행 중") : L("Codex 종료됨")).font(.system(size: 11, weight: .medium))
                 Spacer()
-                Text("라우팅").font(.system(size: 11)).foregroundStyle(Palette.secondary)
-                Toggle("계정 라우팅", isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") }))
+                Text(L("라우팅")).font(.system(size: 11)).foregroundStyle(Palette.secondary)
+                Toggle(L("계정 라우팅"), isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") }))
                     .toggleStyle(.switch).labelsHidden().controlSize(.mini).tint(accent)
-                    .disabled(!model.state.ready || model.busy).accessibilityLabel("계정 라우팅")
+                    .disabled(!model.state.ready || model.busy).accessibilityLabel(L("계정 라우팅"))
             }
             HStack(spacing: 6) {
                 Text(status).font(.system(size: 10, weight: .medium))
@@ -520,7 +520,7 @@ struct ConnectionView: View {
         }.padding(.horizontal, 11).padding(.vertical, 8)
         .background(Color.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(hairline, lineWidth: 1))
-        .help(model.state.enabled && model.state.lastCodexRequestAt == nil ? "아직 Codex 요청이 없습니다. 처음 연결했다면 Codex를 재시작해 주세요." : verified ? "최근 응답 \(Date(timeIntervalSince1970: model.state.lastResponseAt ?? 0).formatted(date: .omitted, time: .shortened))" : "모델 응답 미확인")
+        .help(model.state.enabled && model.state.lastCodexRequestAt == nil ? L("아직 Codex 요청이 없습니다. 처음 연결했다면 Codex를 재시작해 주세요.") : verified ? L("최근 응답 %@", Date(timeIntervalSince1970: model.state.lastResponseAt ?? 0).formatted(date: .omitted, time: .shortened)) : L("모델 응답 미확인"))
     }
 }
 
@@ -529,33 +529,33 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 7) {
-                Image(nsImage: BrandAssets.icon).resizable().interpolation(.high).frame(width: 24, height: 24).accessibilityLabel("Codex Switch 로고")
+                Image(nsImage: BrandAssets.icon).resizable().interpolation(.high).frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
                 Text("Codex Switch").font(.system(size: 13, weight: .semibold))
                 if model.state.demo { Text("DEMO").font(.system(size: 8, weight: .semibold)).foregroundStyle(Palette.amber) }
                 Spacer()
                 if model.busy { ProgressView().controlSize(.small).frame(width: 26, height: 26) }
-                else { IconButton(symbol: "arrow.clockwise", title: "사용량 새로고침") { model.updateCodexStatus(); model.command("refresh") }.disabled(!model.state.ready) }
+                else { IconButton(symbol: "arrow.clockwise", title: L("사용량 새로고침")) { model.updateCodexStatus(); model.command("refresh") }.disabled(!model.state.ready) }
                 Menu {
-                    Toggle("Mac 로그인 시 실행", isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
+                    Toggle(L("Mac 로그인 시 실행"), isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
                     Divider()
-                    Button("종료…") { model.quit() }
+                    Button(L("종료…")) { model.quit() }
                 } label: { Image(systemName: "ellipsis").font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.secondary).frame(width: 26, height: 26) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 26).accessibilityLabel("설정")
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 26).accessibilityLabel(L("설정"))
             }.padding(.horizontal, 12).padding(.vertical, 9)
             ConnectionView(model: model).padding(.horizontal, 10)
             if let message = model.error ?? model.state.lastError {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "exclamationmark.circle").foregroundStyle(Palette.amber)
-                    Text(message).font(.system(size: 10)).fixedSize(horizontal: false, vertical: true)
+                    Text(L(message)).font(.system(size: 10)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
-                    Button { model.error = nil; model.command("dismissError"); model.stateDidChange?() } label: { Image(systemName: "xmark").font(.system(size: 9)) }.buttonStyle(.plain).accessibilityLabel("오류 닫기")
+                    Button { model.error = nil; model.command("dismissError"); model.stateDidChange?() } label: { Image(systemName: "xmark").font(.system(size: 9)) }.buttonStyle(.plain).accessibilityLabel(L("오류 닫기"))
                 }.padding(10).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8)).padding(.horizontal, 10).padding(.top, 6)
             }
             HStack(spacing: 5) {
-                Text("계정").font(.system(size: 11, weight: .semibold))
+                Text(L("계정")).font(.system(size: 11, weight: .semibold))
                 Text("\(model.state.accounts.filter { $0.status != "loggingIn" }.count)").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.muted)
                 Spacer()
-                Text("남은 한도").font(.system(size: 10)).foregroundStyle(Palette.secondary)
+                Text(L("남은 한도")).font(.system(size: 10)).foregroundStyle(Palette.secondary)
             }.padding(.horizontal, 13).padding(.top, 10).padding(.bottom, 6)
             ScrollView {
                 VStack(spacing: 6) {
@@ -566,16 +566,16 @@ struct PanelView: View {
             Rectangle().fill(hairline).frame(height: 1)
             HStack {
                 Menu {
-                    Button("브라우저로 로그인") { model.login() }
-                    Button("기기 코드로 로그인") { model.login(device: true) }
-                } label: { Label("계정 추가", systemImage: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(accent) }
+                    Button(L("브라우저로 로그인")) { model.login() }
+                    Button(L("기기 코드로 로그인")) { model.login(device: true) }
+                } label: { Label(L("계정 추가"), systemImage: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(accent) }
                     primaryAction: { model.login() }
                     .menuStyle(.borderlessButton).fixedSize().disabled(model.busy || model.state.accounts.contains { $0.status == "loggingIn" })
                 Spacer()
                 if let updated = model.state.accounts.compactMap({ $0.updatedAt }).max() {
-                    Text("\(Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)) 갱신")
+                    Text(L("%@ 갱신", Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)))
                         .font(.system(size: 10)).foregroundStyle(Palette.secondary)
-                        .help(model.state.ready ? "로컬 프록시 실행 중" : "로컬 프록시 중지됨")
+                        .help(model.state.ready ? L("로컬 프록시 실행 중") : L("로컬 프록시 중지됨"))
                 }
 
             }.padding(.horizontal, 13).padding(.vertical, 9)
@@ -613,7 +613,7 @@ struct PanelView: View {
         popover.contentViewController = NSHostingController(rootView: PanelView(model: model))
         model.stateDidChange = { [weak self] in
             guard let self else { return }
-            self.statusItem.button?.toolTip = self.model.state.enabled ? "Codex Switch · \(self.model.state.selectedName)" : "Codex Switch · 연결 꺼짐"
+            self.statusItem.button?.toolTip = self.model.state.enabled ? "Codex Switch · \(self.model.state.selectedName)" : L("Codex Switch · 연결 꺼짐")
             self.popover.contentSize = NSSize(width: 348, height: self.model.panelHeight)
         }
         model.start()
