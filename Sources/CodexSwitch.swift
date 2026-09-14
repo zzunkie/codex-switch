@@ -252,51 +252,40 @@ struct AppState: Decodable {
 }
 
 private enum Palette {
-    static let graphite = Color(red: 0.075, green: 0.12, blue: 0.11)
-    static let ivory = Color(red: 0.96, green: 0.95, blue: 0.90)
+    static let graphite = Color(red: 0.12, green: 0.20, blue: 0.17)
+    static let ivory = Color(red: 0.99, green: 0.995, blue: 0.975)
     static let jade = Color(red: 0.59, green: 0.86, blue: 0.75)
-    static let secondary = Color(red: 0.81, green: 0.86, blue: 0.82)
-    static let muted = Color(red: 0.52, green: 0.63, blue: 0.58)
-    static let amber = Color(red: 0.96, green: 0.75, blue: 0.44)
-    static let coral = Color(red: 1.0, green: 0.58, blue: 0.54)
+    static let green = Color(red: 0.10, green: 0.44, blue: 0.33)
+    static let secondary = Color(red: 0.32, green: 0.40, blue: 0.36)
+    static let muted = Color(red: 0.44, green: 0.51, blue: 0.47)
+    static let amber = Color(red: 0.63, green: 0.39, blue: 0.08)
+    static let coral = Color(red: 0.72, green: 0.24, blue: 0.20)
 }
-private let accent = Palette.jade
-private let hairline = Palette.ivory.opacity(0.10)
+private let accent = Palette.green
+private let hairline = Palette.graphite.opacity(0.08)
 
-// One native backdrop for the whole panel; cards share it instead of each
-// running a separate blur. Accessibility settings can remove transparency.
-private struct NativeGlass: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.appearance = NSAppearance(named: .darkAqua)
-        return view
-    }
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
-}
-
+// NSPopover already supplies the behind-window material. These transparent
+// layers add tint and rim lighting without stacking another visual-effect view.
 private struct PanelGlass: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var body: some View {
         ZStack {
-            if reduceTransparency { Palette.graphite }
+            if reduceTransparency { Palette.ivory }
             else {
-                NativeGlass()
-                Palette.graphite.opacity(0.60)
-                LinearGradient(colors: [Palette.jade.opacity(0.17), .clear, Color.black.opacity(0.12)],
+                Palette.ivory.opacity(0.24)
+                Palette.jade.opacity(0.045)
+                LinearGradient(colors: [Palette.jade.opacity(0.07), .clear, Palette.ivory.opacity(0.08)],
                                startPoint: .topTrailing, endPoint: .bottomLeading)
                 // A broad reflection and a fine inner rim suggest polished
                 // glass without another blur, image capture, or moving shader.
                 LinearGradient(stops: [
-                    .init(color: Palette.ivory.opacity(0.15), location: 0),
-                    .init(color: Palette.ivory.opacity(0.045), location: 0.28),
+                    .init(color: Color.white.opacity(0.28), location: 0),
+                    .init(color: Color.white.opacity(0.07), location: 0.28),
                     .init(color: .clear, location: 0.29),
                     .init(color: .clear, location: 1)
                 ], startPoint: .topLeading, endPoint: .bottomTrailing)
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(LinearGradient(colors: [Palette.ivory.opacity(0.58), Palette.ivory.opacity(0.04), Palette.jade.opacity(0.24)],
+                    .strokeBorder(LinearGradient(colors: [.white.opacity(0.95), .white.opacity(0.20), Palette.jade.opacity(0.22)],
                                                  startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
             }
         }.allowsHitTesting(false)
@@ -310,22 +299,22 @@ private struct CardGlass: View {
     @Environment(\.colorSchemeContrast) private var contrast
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        let rim = contrast == .increased ? 0.70 : 0.48
+        let rim = contrast == .increased ? Palette.graphite.opacity(0.45) : Color.white.opacity(0.90)
         ZStack {
-            if reduceTransparency { shape.fill(Palette.graphite) }
+            if reduceTransparency { shape.fill(.white) }
             shape.fill(LinearGradient(
-                colors: [active ? Palette.jade.opacity(0.11) : Palette.ivory.opacity(hover ? 0.07 : 0.035),
-                         Color.black.opacity(active ? 0.025 : 0.045)],
+                colors: [active ? Palette.jade.opacity(0.09) : Color.white.opacity(hover ? 0.46 : 0.32),
+                         Color.white.opacity(0.12)],
                 startPoint: .topLeading, endPoint: .bottomTrailing))
             shape.strokeBorder(LinearGradient(
                 stops: [
-                    .init(color: active ? Palette.jade.opacity(0.80) : Palette.ivory.opacity(rim), location: 0),
-                    .init(color: Palette.ivory.opacity(0.08), location: 0.40),
-                    .init(color: Color.black.opacity(0.18), location: 0.65),
-                    .init(color: active ? Palette.jade.opacity(0.30) : Palette.ivory.opacity(0.20), location: 1)
+                    .init(color: active ? accent.opacity(0.36) : rim, location: 0),
+                    .init(color: Color.white.opacity(0.25), location: 0.40),
+                    .init(color: Palette.graphite.opacity(0.10), location: 0.65),
+                    .init(color: active ? accent.opacity(0.18) : Color.white.opacity(0.60), location: 1)
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-            shape.inset(by: 1).strokeBorder(LinearGradient(colors: [Palette.ivory.opacity(0.13), .clear],
+            shape.inset(by: 1).strokeBorder(LinearGradient(colors: [Color.white.opacity(0.45), .clear],
                                                            startPoint: .top, endPoint: .bottom), lineWidth: 1)
         }.allowsHitTesting(false)
     }
@@ -382,7 +371,7 @@ struct QuotaView: View {
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.ivory.opacity(0.08))
+                    Capsule().fill(Palette.graphite.opacity(0.08))
                     Capsule().fill(tint).frame(width: max(0, geometry.size.width * min(100, max(0, window.remainingPercent)) / 100))
                 }
             }.frame(height: 3)
@@ -417,7 +406,7 @@ struct AccountCard: View {
                         if !account.planName.isEmpty {
                             Text(account.planName).font(.system(size: 9, weight: .semibold)).tracking(0.3)
                                 .padding(.horizontal, 4).padding(.vertical, 2)
-                                .background(Palette.ivory.opacity(0.07), in: RoundedRectangle(cornerRadius: 3))
+                                .background(Palette.graphite.opacity(0.045), in: RoundedRectangle(cornerRadius: 3))
                         }
                         if account.isCurrent == true { Text("Codex 로그인").font(.system(size: 10)) }
                         if effective { Text("요청 계정").font(.system(size: 10, weight: .medium)).foregroundStyle(accent) }
@@ -529,7 +518,7 @@ struct ConnectionView: View {
                 Spacer(minLength: 0)
             }
         }.padding(.horizontal, 11).padding(.vertical, 8)
-        .background(Palette.graphite.opacity(0.30), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(hairline, lineWidth: 1))
         .help(model.state.enabled && model.state.lastCodexRequestAt == nil ? "아직 Codex 요청이 없습니다. 처음 연결했다면 Codex를 재시작해 주세요." : verified ? "최근 응답 \(Date(timeIntervalSince1970: model.state.lastResponseAt ?? 0).formatted(date: .omitted, time: .shortened))" : "모델 응답 미확인")
     }
@@ -592,9 +581,9 @@ struct PanelView: View {
             }.padding(.horizontal, 13).padding(.vertical, 9)
         }
         .frame(width: 348, height: model.panelHeight)
-        .foregroundStyle(Palette.ivory)
+        .foregroundStyle(Palette.graphite)
         .background(PanelGlass())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .onAppear { model.refreshIfNeeded() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in model.updateCodexStatus() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in model.updateCodexStatus() }
@@ -618,7 +607,7 @@ struct PanelView: View {
             button.action = #selector(togglePopover)
         }
         popover.behavior = .transient
-        popover.appearance = NSAppearance(named: .darkAqua)
+        popover.appearance = NSAppearance(named: .aqua)
         popover.delegate = self
         popover.contentSize = NSSize(width: 348, height: model.panelHeight)
         popover.contentViewController = NSHostingController(rootView: PanelView(model: model))
