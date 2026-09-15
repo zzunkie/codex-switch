@@ -31,6 +31,18 @@ The panel displays the quota windows returned by Codex. A weekly-only plan gets 
 
 **응답 확인** (Response verified) means the proxy observed a model response completion for the chosen account during this app session. It is not a server health or quota guarantee.
 
+## Reset credits
+
+Each account shows its available reset-credit count. Unknown counts remain unavailable. Click **Use…** next to the intended account to review and confirm spending **one** credit. The confirmation defaults to Cancel.
+
+New reset attempts require a core five-hour or weekly window with 10% or less remaining; separate model limits do not qualify. The account and usage are checked again after confirmation, and the server decides whether a reset is eligible. The original Codex login and routing selection are not changed by a reset.
+
+If the result is uncertain, **Check result** retries the same approved request with the same durable idempotency key, including after an app restart. If the original request never arrived, this retry may perform it; a completed request cannot spend a second credit. Reset success stays confirmed even if the following usage refresh fails.
+
+A recent Codex app-server is required. Counts use `account/rateLimits/read`; redemption uses `account/rateLimitResetCredit/consume`. `reset-attempts.json` in the app data directory preserves pending requests. Do not remove it while a request is unresolved. No reset credit is ever consumed by polling or automatically switching accounts.
+
+Real account count reads have been checked. Redemption is tested with synthetic accounts and mock servers; tests do not spend real credits.
+
 ## Disconnect
 
 Turn routing off to restore the previous endpoint setting. Use **설정 → 종료** (Settings → Quit) to restore it and stop the app. Restart Codex after quitting so it reloads the restored configuration.

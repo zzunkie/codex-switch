@@ -4,6 +4,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import readline from "node:readline";
 import { Accounts } from "./accounts.mjs";
+import { ResetCredits } from "./resets.mjs";
 import { RoutingProxy } from "./proxy.mjs";
 import { ConfigLink, atomicWrite } from "./config.mjs";
 
@@ -93,6 +94,43 @@ function write(value) {
   if (process.stdout.writable)
     process.stdout.write(JSON.stringify(value) + "\n");
 }
+const resets = new ResetCredits({
+  directory,
+  read: async (id) => {
+    if (!demo) return accounts.readResetSnapshot(id);
+    const item = accounts.items.find((a) => a.id === id);
+    if (!item) throw new Error("계정을 찾을 수 없습니다.");
+    return { ...item.resetCredits, identity: id, email: item.email };
+  },
+  redeem: async (id, params) => {
+    if (!demo)
+      return accounts
+        .client(id)
+        .request("account/rateLimitResetCredit/consume", params, 30000);
+    const item = accounts.items.find((a) => a.id === id);
+    item.resetCredits = {
+      availableCount: Math.max(0, item.resetCredits.availableCount - 1),
+      eligible: false,
+    };
+    for (const w of [item.limits[0]?.primary, item.limits[0]?.secondary].filter(
+      Boolean,
+    )) {
+      w.usedPercent = 0;
+      w.remainingPercent = 100;
+    }
+    return { outcome: "reset" };
+  },
+  onResolved: async (id) => {
+    if (!demo) {
+      const item = accounts.items.find((a) => a.id === id);
+      if (item) item.resetCredits = { availableCount: null, eligible: false };
+      await accounts.refreshes.get(id);
+      await accounts.refresh(id);
+    }
+    changed();
+  },
+  changed,
+});
 function snapshot() {
   return {
     ready,
@@ -100,7 +138,13 @@ function snapshot() {
     selected: settings.selected,
     port: proxy.port,
     binaryAvailable: !!binary,
-    accounts: accounts.list(),
+    accounts: accounts.list().map((a) => ({
+      ...a,
+      resetCredits: {
+        ...a.resetCredits,
+        ...resets.status(demo ? a.id : accounts.resetIdentities.get(a.id)),
+      },
+    })),
     activeRequests: proxy.inFlight,
     totalRequests: proxy.total,
     lastResponseAt: proxy.lastResponseAt,
@@ -137,6 +181,12 @@ proxy.on("complete", (id) => {
 
 async function action(method, p = {}) {
   if (method === "state") return snapshot();
+  if (method === "prepareReset") return resets.prepare(p.id);
+  if (method === "consumeReset") return resets.consume(p.id, p.token);
+  if (method === "cancelReset") {
+    resets.cancel(p.token);
+    return {};
+  }
   if (method === "dismissError") {
     notice = null;
     proxy.lastError = null;
@@ -275,7 +325,7 @@ if (demo) {
       plan: "pro",
       status: "ready",
       limits: [
-        ...pro(87),
+        ...pro(92),
         {
           id: "codex_spark",
           name: "Codex Spark",
@@ -304,6 +354,9 @@ if (demo) {
       updatedAt: now,
     },
   ];
+  accounts.items[0].resetCredits = { availableCount: 2, eligible: true };
+  accounts.items[1].resetCredits = { availableCount: 3, eligible: false };
+  accounts.items[2].resetCredits = { availableCount: 0, eligible: false };
   settings.selected = "demo-work";
 }
 try {

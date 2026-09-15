@@ -38,6 +38,7 @@ test("all Korean UI literals and static helper messages have English translation
     "../Backend/main.mjs",
     "../Backend/proxy.mjs",
     "../Backend/rpc.mjs",
+    "../Backend/resets.mjs",
   ]) {
     const source = fs.readFileSync(new URL(filename, import.meta.url), "utf8");
     for (const [quoted] of source.matchAll(/"(?:\\.|[^"\\])*"/g)) {

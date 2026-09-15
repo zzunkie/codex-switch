@@ -10,3 +10,5 @@ received an independent security audit. The local route secret protects against
 accidental or browser-origin access; it does not protect against software already
 running as your macOS user. Added-account credentials and config backups are
 sensitive local files.
+
+Reset-attempt journals contain opaque account IDs and idempotency keys. Reset control uses the private helper IPC, not the HTTP proxy. A short-lived confirmation challenge binds a redemption to the reviewed account, and pending requests retain their key across restarts.

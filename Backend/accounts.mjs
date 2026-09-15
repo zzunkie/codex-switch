@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { CodexRPC } from "./rpc.mjs";
 import { atomicWrite } from "./config.mjs";
+import { resetSummary } from "./resets.mjs";
 
 export function jwtClaims(token) {
   try {
@@ -49,6 +50,7 @@ export class Accounts extends EventEmitter {
     this.file = path.join(directory, "accounts.json");
     this.clients = new Map();
     this.tokenCache = new Map();
+    this.resetIdentities = new Map();
     this.refreshes = new Map();
     this.idleTimers = new Map();
     this.pending = null;
@@ -153,6 +155,8 @@ export class Accounts extends EventEmitter {
         item.limits = [];
         item.updatedAt = null;
         item.ordinaryUsageAllowed = null;
+        item.resetCredits = { availableCount: null, eligible: false };
+        this.resetIdentities.delete(id);
         this.tokenCache.delete(id);
         item.error = "ChatGPT 로그인이 필요합니다.";
         return;
@@ -162,22 +166,63 @@ export class Accounts extends EventEmitter {
       item.status = "ready";
       item.error = null;
       try {
-        const limits = await client.request("account/rateLimits/read", {});
+        const limits = await client.request("account/rateLimits/read", {
+          excludeResetCreditDetails: true,
+        });
         item.limits = normalizeLimits(limits);
+        item.resetCredits = resetSummary(limits);
+        this.resetIdentities.set(id, limits.accountId ?? null);
         item.ordinaryUsageAllowed = limits.ordinaryUsageAllowed ?? null;
         item.updatedAt = Date.now() / 1000;
       } catch {
+        item.resetCredits = { availableCount: null, eligible: false };
         item.error = "사용량을 조회하지 못했습니다. 잠시 후 새로고침해 주세요.";
       }
       if (id !== "current") this.save();
     } catch {
       item.status = "error";
+      item.resetCredits = { availableCount: null, eligible: false };
       item.error =
         "계정에 연결하지 못했습니다. Codex 설치 또는 로그인을 확인해 주세요.";
     } finally {
       item.refreshing = false;
       this.changed();
     }
+  }
+  async readResetSnapshot(id) {
+    const item = this.items.find((a) => a.id === id);
+    if (!item || item.status === "loggingIn")
+      throw new Error("계정을 찾을 수 없습니다.");
+    // Await an older background read, then issue fresh reads for the confirmed action.
+    await this.refreshes.get(id);
+    const client = this.client(id);
+    const account = await client.request(
+      "account/read",
+      { refreshToken: false },
+      10000,
+    );
+    if (account?.account?.type !== "chatgpt")
+      throw new Error("ChatGPT 로그인이 필요합니다.");
+    const result = await client.request(
+      "account/rateLimits/read",
+      { excludeResetCreditDetails: true },
+      15000,
+    );
+    item.email = account.account.email;
+    item.plan = account.account.planType;
+    item.status = "ready";
+    item.error = null;
+    item.limits = normalizeLimits(result);
+    item.ordinaryUsageAllowed = result.ordinaryUsageAllowed ?? null;
+    item.resetCredits = resetSummary(result);
+    item.updatedAt = Date.now() / 1000;
+    this.resetIdentities.set(id, result.accountId ?? null);
+    this.changed();
+    return {
+      ...item.resetCredits,
+      identity: result.accountId,
+      email: item.email,
+    };
   }
   async refreshAll() {
     for (let i = 0; i < this.items.length; i += 2)

@@ -83,3 +83,51 @@ test("a second helper cannot take ownership of the same state or stop the active
   first.proc.stdin.end();
   await exited;
 });
+
+test("demo reset requires confirmation and only changes synthetic account state", async (t) => {
+  const dir = fs.mkdtempSync(path.join(root, "reset-")),
+    helper = launch(dir);
+  t.after(() => helper.proc.kill());
+  await helper.initial;
+  const invalid = await helper.request({
+    method: "consumeReset",
+    params: { id: "current", token: "none" },
+  });
+  assert.ok(invalid.error);
+  const preview = (
+    await helper.request({ method: "prepareReset", params: { id: "current" } })
+  ).result;
+  assert.equal(preview.availableCount, 2);
+  await helper.request({
+    method: "cancelReset",
+    params: { token: preview.token },
+  });
+  assert.ok(
+    (
+      await helper.request({
+        method: "consumeReset",
+        params: { id: "current", token: preview.token },
+      })
+    ).error,
+  );
+  const confirmed = (
+    await helper.request({ method: "prepareReset", params: { id: "current" } })
+  ).result;
+  assert.equal(
+    (
+      await helper.request({
+        method: "consumeReset",
+        params: { id: "current", token: confirmed.token },
+      })
+    ).result.outcome,
+    "reset",
+  );
+  const state = (await helper.request("state")).result;
+  assert.equal(state.accounts[0].resetCredits.availableCount, 1);
+  assert.equal(state.accounts[0].limits[0].primary.remainingPercent, 100);
+  assert.equal(state.selected, "demo-work");
+  assert.equal(state.enabled, false);
+  const exited = once(helper.proc, "exit");
+  helper.proc.stdin.end();
+  await exited;
+});

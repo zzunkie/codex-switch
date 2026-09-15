@@ -4,6 +4,7 @@ Keep changes focused: this is a small native menu bar utility.
 
 - UI: `Sources/CodexSwitch.swift` (SwiftUI and AppKit).
 - Accounts and helper IPC: `Backend/accounts.mjs`, `rpc.mjs`, and `main.mjs`.
+- Reset confirmation and durable request recovery: `Backend/resets.mjs`.
 - Configuration recovery: `Backend/config.mjs`.
 - HTTP/SSE and WebSocket routing: `Backend/proxy.mjs`.
 
@@ -18,3 +19,5 @@ about a plan name. Do not add real tokens or account fixtures.
 For UI changes, check compact layout, readability over light/dark backgrounds, initial focus,
 keyboard navigation, and Reduce Motion. Keep dependencies and background work
 small. Describe what changed and what you verified in the pull request.
+
+Test reset redemption only with synthetic credits. Real credit consumption requires explicit approval for that one credit. Preserve account binding, fresh eligibility checks, and the pending idempotency key on uncertain results.

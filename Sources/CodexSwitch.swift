@@ -44,6 +44,7 @@ struct Account: Decodable, Identifiable {
     var ordinaryUsageAllowed: Bool?
     var loginURL: String?
     var userCode: String?
+    var resetCredits: ResetCreditState?
     var displayName: String { email ?? L(label) }
     var planName: String {
         switch plan {
@@ -57,6 +58,12 @@ struct Account: Decodable, Identifiable {
         default: return plan!.uppercased()
         }
     }
+}
+struct ResetCreditState: Decodable {
+    var availableCount: Int?
+    var eligible: Bool?
+    var pending: Bool?
+    var outcome: String?
 }
 struct AppState: Decodable {
     var ready: Bool = false
@@ -99,7 +106,7 @@ struct AppState: Decodable {
         let accountHeight = state.accounts.reduce(0) { height, account in
             let details = expandedAccounts.contains(account.id) ? max(0, account.limits.count - 1) * 76 + 8 : 0
             let exceptional = account.status == "loggingIn" ? 48 : (account.error == nil && account.ordinaryUsageAllowed != false ? 0 : 24)
-            return height + 112 + details + exceptional
+            return height + 112 + details + exceptional + (account.status == "loggingIn" ? 0 : 26)
         }
         let errorHeight: Int = (error ?? state.lastError) == nil ? 0 : 46
         return min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 36, CGFloat(172 + max(108, accountHeight) + errorHeight))
@@ -218,6 +225,34 @@ struct AppState: Decodable {
         alert.addButton(withTitle: L("제거"))
         alert.addButton(withTitle: L("취소"))
         if alert.runModal() == .alertFirstButtonReturn { command("remove", ["id": account.id]) }
+    }
+    func useResetCredit(_ account: Account) {
+        guard !busy else { return }
+        busy = true
+        Task {
+            defer { busy = false }
+            do {
+                let preview = try await request("prepareReset", ["id": account.id])
+                guard let token = preview["token"] as? String, let email = preview["email"] as? String else {
+                    throw failure(L("리셋할 계정 정보를 확인하지 못했습니다. 새로고침해 주세요."))
+                }
+                let retry = preview["retry"] as? Bool == true
+                let alert = NSAlert()
+                alert.messageText = retry ? L("이전 리셋 결과를 확인할까요?") : L("리셋권 1개를 사용할까요?")
+                alert.informativeText = retry
+                    ? L("%@ 계정의 이전 요청을 같은 번호로 다시 시도합니다. 아직 처리되지 않았다면 리셋권 1개가 사용될 수 있습니다. 이미 처리됐다면 추가로 사용하지 않습니다.", email)
+                    : L("%@ 계정의 리셋권 1개를 소모해 사용 가능한 기본 한도를 초기화합니다. 이 사용은 되돌릴 수 없습니다.", email)
+                // Return cancels. Spending a credit needs an explicit choice.
+                alert.addButton(withTitle: L("취소")).keyEquivalent = "\r"
+                alert.addButton(withTitle: retry ? L("결과 확인") : L("1개 사용")).keyEquivalent = ""
+                alert.window.defaultButtonCell = alert.buttons[0].cell as? NSButtonCell
+                alert.window.initialFirstResponder = alert.buttons[0]
+                guard alert.runModal() == .alertSecondButtonReturn else {
+                    _ = try? await request("cancelReset", ["token": token]); return
+                }
+                _ = try await request("consumeReset", ["id": account.id, "token": token])
+            } catch { self.error = error.localizedDescription }
+        }
     }
     func setLoginAtStartup(_ enabled: Bool) {
         do {
@@ -440,6 +475,7 @@ struct AccountCard: View {
                     Menu { Button(L("계정 제거…"), role: .destructive) { model.remove(account) } }
                         label: { Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Palette.secondary) }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 20, height: 26)
+                        .disabled(model.busy)
                 }
             }
             if account.status == "loggingIn" {
@@ -475,6 +511,7 @@ struct AccountCard: View {
             }
             if account.ordinaryUsageAllowed == false { Text(L("한도 소진")).font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.amber) }
             if let error = account.error, !account.limits.isEmpty { Text(L(error)).font(.system(size: 10)).foregroundStyle(Palette.amber) }
+            if account.status != "loggingIn" { ResetCreditRow(model: model, account: account) }
 
         }
         .padding(10)
@@ -483,6 +520,45 @@ struct AccountCard: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hover)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: effective)
         .accessibilityIdentifier("account-\(account.id)")
+    }
+}
+
+struct ResetCreditRow: View {
+    @ObservedObject var model: AppModel
+    var account: Account
+    var state: ResetCreditState? { account.resetCredits }
+    var pending: Bool { state?.pending == true }
+    var available: Bool { pending || ((state?.availableCount ?? 0) > 0 && state?.eligible == true) }
+    var help: String {
+        if pending { return L("응답이 확인되지 않은 이전 리셋 요청을 다시 확인합니다.") }
+        if state?.availableCount == nil { return L("리셋권 정보를 확인하지 못했습니다. Codex 업데이트 또는 새로고침이 필요합니다.") }
+        if state?.availableCount == 0 { return L("사용할 리셋권이 없습니다.") }
+        return L("기본 5시간 또는 주간 한도가 10% 이하로 남았을 때 사용할 수 있습니다.")
+    }
+    var outcomeText: String? {
+        switch state?.outcome {
+        case "reset": return L("초기화 완료")
+        case "alreadyRedeemed": return L("처리 완료 확인")
+        case "noCredit": return L("리셋권 없음")
+        case "nothingToReset": return L("초기화 불필요")
+        default: return nil
+        }
+    }
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "ticket").font(.system(size: 10)).accessibilityHidden(true)
+            Text(state?.availableCount.map { L("리셋권 %d개", $0) } ?? L("리셋권 미확인"))
+                .font(.system(size: 10)).monospacedDigit()
+            Spacer(minLength: 3)
+            if let outcomeText { Text(outcomeText).font(.system(size: 9)).foregroundStyle(accent).lineLimit(1) }
+            Button(pending ? L("결과 확인") : L("사용…")) { model.useResetCredit(account) }
+                .font(.system(size: 10, weight: .medium)).buttonStyle(.plain)
+                .padding(.horizontal, 7).frame(height: 20)
+                .foregroundStyle(available ? accent : Palette.muted)
+                .background(accent.opacity(available ? 0.08 : 0.025), in: RoundedRectangle(cornerRadius: 4))
+                .disabled(!available || model.busy || account.refreshing == true || account.status != "ready")
+                .accessibilityLabel(pending ? L("%@ 리셋 결과 확인", account.displayName) : L("%@ 리셋권 사용", account.displayName))
+        }.foregroundStyle(Palette.secondary).help(help)
     }
 }
 
