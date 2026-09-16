@@ -4,7 +4,7 @@
 
 A small macOS menu bar app for choosing which signed-in ChatGPT account handles Codex requests and checking each account's remaining usage.
 
-A native menu-bar interface using the system palette, default Liquid Glass surfaces and buttons, and standard capacity gauges. The opaque main panel uses the system background; light/dark appearance and accessibility behavior follow macOS. Custom color palettes, painted borders, hover layers, and hand-drawn progress bars have been removed.
+A native menu-bar interface using the system palette, default Liquid Glass surfaces and buttons, and standard progress indicators. The opaque main panel uses the system background; light/dark appearance and accessibility behavior follow macOS. Custom color palettes, painted borders, hover layers, and hand-drawn progress bars have been removed.
 
 SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface follows the Mac’s language preferences: Korean or English, with English as the fallback. Dates and times follow regional settings. Reopen the app after changing its language in macOS. [한국어 안내](README.ko.md)
 

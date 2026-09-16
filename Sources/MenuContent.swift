@@ -60,12 +60,13 @@ private struct UsageMeter: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Gauge(value: window.remainingPercent, in: 0...100) {
-                Text(window.title)
-            } currentValueLabel: {
-                Text(window.displayPercent).monospacedDigit()
+            HStack {
+                Text(window.title).font(.caption)
+                Spacer()
+                Text(window.displayPercent).fontWeight(.semibold).monospacedDigit()
             }
-            .gaugeStyle(.linearCapacity).tint(color)
+            ProgressView(value: window.remainingPercent, total: 100)
+                .progressViewStyle(.linear).tint(color)
             Text(window.resetDateText).font(.caption2).foregroundStyle(.secondary)
                 .lineLimit(1).minimumScaleFactor(0.8)
         }
@@ -106,10 +107,11 @@ private struct AccountSection: View {
                 .accessibilityLabel(L("%@ 선택", account.displayName))
                 if account.refreshing == true { ProgressView().controlSize(.mini) }
                 if account.isCurrent != true && account.status != "loggingIn" {
-                    Menu {
+                    Menu("…") {
                         Button(L("계정 제거…"), role: .destructive) { model.remove(account) }
-                    } label: { Image(systemName: "ellipsis") }
+                    }
                     .menuIndicator(.hidden).fixedSize().disabled(model.busy)
+                    .accessibilityLabel(L("계정 제거…"))
                 }
             }
             if account.status == "loggingIn" {
@@ -211,15 +213,16 @@ private struct ConnectionSummary: View {
         return verified ? L("응답 확인") : L("응답 미확인")
     }
     var body: some View {
-        Toggle(isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") })) {
+        HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(L("계정 라우팅")).font(.headline)
                 Text([model.codexRunning ? L("Codex 실행 중") : L("Codex 종료됨"), status, verified ? model.state.lastModel ?? "" : ""].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            Spacer()
+            Toggle(L("계정 라우팅"), isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") }))
+                .labelsHidden().toggleStyle(.switch).disabled(!model.state.ready || model.busy)
         }
-        .toggleStyle(.switch).disabled(!model.state.ready || model.busy)
-        .help(model.codexRunning ? L("Codex 실행 중") : L("Codex 종료됨"))
         .padding().modifier(SystemGlassSurface())
     }
 }
@@ -245,8 +248,7 @@ struct PanelView: View {
         return min(sizes[.accounts] ?? 160, max(100, maximum - (sizes[.top] ?? 130) - (sizes[.footer] ?? 40) - 56))
     }
     var body: some View {
-        SystemGlassGroup {
-            VStack(spacing: 12) {
+        VStack(spacing: 12) {
                 VStack(spacing: 12) {
                     HStack {
                         Image(nsImage: BrandAssets.icon).resizable().frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
@@ -258,12 +260,12 @@ struct PanelView: View {
                             Button(L("사용량 새로고침"), systemImage: "arrow.clockwise") { model.updateCodexStatus(); model.command("refresh") }
                                 .labelStyle(.iconOnly).modifier(SystemActionStyle()).help(L("사용량 새로고침")).disabled(!model.state.ready)
                         }
-                        Menu {
+                        Menu(L("설정")) {
                             Toggle(L("Mac 로그인 시 실행"), isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
                             Divider()
                             Button(L("종료…")) { model.quit() }
-                        } label: { Image(systemName: "ellipsis") }
-                        .menuIndicator(.hidden).fixedSize().modifier(SystemActionStyle()).accessibilityLabel(L("설정"))
+                        }
+                        .fixedSize().modifier(SystemActionStyle())
                     }
                     ConnectionSummary(model: model)
                     if let message = model.error ?? model.state.lastError {
@@ -283,13 +285,15 @@ struct PanelView: View {
                     }.font(.caption)
                 }.measured(.top)
                 ScrollView {
+                    SystemGlassGroup {
                     VStack(spacing: 12) {
                         if model.state.accounts.isEmpty { ProgressView().padding() }
                         ForEach(model.state.accounts) { AccountSection(model: model, account: $0) }
                     }
                     .padding(.vertical, 4)
                     .measured(.accounts)
-                }.frame(height: listHeight)
+                    }
+                }.frame(height: listHeight).clipped()
                 VStack(spacing: 8) {
                     Divider()
                     HStack {
@@ -309,7 +313,6 @@ struct PanelView: View {
                 }.measured(.footer)
             }
             .padding(16)
-        }
         .frame(width: 360).fixedSize(horizontal: false, vertical: true)
         .font(.callout).controlSize(.small)
         .background(.background)
