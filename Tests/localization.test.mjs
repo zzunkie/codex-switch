@@ -33,6 +33,7 @@ test("English and Korean catalogs have matching keys and format arguments", () =
 test("all Korean UI literals and static helper messages have English translations", () => {
   for (const filename of [
     "../Sources/CodexSwitch.swift",
+    "../Sources/MenuContent.swift",
     "../Backend/accounts.mjs",
     "../Backend/config.mjs",
     "../Backend/main.mjs",

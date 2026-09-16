@@ -1,7 +1,6 @@
 name: CI
 on:
   push:
-    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -24,3 +23,11 @@ jobs:
       - run: zsh build.sh
       - run: '"dist/Codex Switch.app/Contents/Resources/Runtime/node" --test Tests/*.test.mjs'
       - run: zsh Tools/test-localization.sh
+      - if: matrix.os == 'macos-26'
+        run: ditto -c -k --norsrc --noextattr --keepParent "dist/Codex Switch.app" dist/Codex-Switch-macOS-arm64.zip
+      - if: matrix.os == 'macos-26'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codex-Switch-macOS-arm64
+          path: dist/Codex-Switch-macOS-arm64.zip
+          retention-days: 7
