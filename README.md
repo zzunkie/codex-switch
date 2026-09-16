@@ -8,7 +8,7 @@ A native menu-bar interface using the system palette, default Liquid Glass surfa
 
 SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface follows the Mac’s language preferences: Korean or English, with English as the fallback. Dates and times follow regional settings. Reopen the app after changing its language in macOS. [한국어 안내](README.ko.md)
 
-macOS 14/15 use standard card surfaces. Building the native glass path requires Xcode 26 / Swift 6.2 or later. The current UI targets macOS 27 and retains a standard-material fallback on macOS 14/15. The app adds no screen capture or custom rendering loop.
+macOS 14/15 use standard card surfaces. Building the native glass path requires Xcode 26 / Swift 6.2 or later. The current native UI has been checked on macOS 27 and retains a standard-material fallback on macOS 14/15. The app adds no screen capture or custom rendering loop.
 
 ## Install
 
@@ -22,7 +22,7 @@ Download the Apple Silicon app from [Releases](https://github.com/zzunkie/codex-
 
 1. Click the S icon in the menu bar. The existing Codex login appears automatically.
 2. Click **계정 추가** (Add account) and complete the official browser login for another account. Device-code login is also available.
-3. Click an account name or its selection circle, then enable **라우팅** (Routing).
+3. Click an account name or its selection circle, then enable **계정 라우팅** (Account routing).
 4. Send a new Codex request. If the status stays at **Codex 연결 대기** (Waiting for Codex), restart Codex once to load the endpoint setting.
 
 The current Codex login stays in place. Choosing an account affects new requests; an existing response finishes on its original account. There is no automatic fallback on authentication or quota errors.

@@ -249,70 +249,70 @@ struct PanelView: View {
     }
     var body: some View {
         VStack(spacing: 12) {
-                VStack(spacing: 12) {
-                    HStack {
-                        Image(nsImage: BrandAssets.icon).resizable().frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
-                        Text("Codex Switch").font(.headline)
-                        if model.state.demo { Text("DEMO").font(.caption).foregroundStyle(.secondary) }
-                        Spacer()
-                        if model.busy { ProgressView().controlSize(.small) }
-                        else {
-                            Button(L("사용량 새로고침"), systemImage: "arrow.clockwise") { model.updateCodexStatus(); model.command("refresh") }
-                                .labelStyle(.iconOnly).modifier(SystemActionStyle()).help(L("사용량 새로고침")).disabled(!model.state.ready)
-                        }
-                        Menu(L("설정")) {
-                            Toggle(L("Mac 로그인 시 실행"), isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
-                            Divider()
-                            Button(L("종료…")) { model.quit() }
-                        }
-                        .fixedSize().modifier(SystemActionStyle())
+            VStack(spacing: 12) {
+                HStack {
+                    Image(nsImage: BrandAssets.icon).resizable().frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
+                    Text("Codex Switch").font(.headline)
+                    if model.state.demo { Text("DEMO").font(.caption).foregroundStyle(.secondary) }
+                    Spacer()
+                    if model.busy { ProgressView().controlSize(.small) }
+                    else {
+                        Button(L("사용량 새로고침"), systemImage: "arrow.clockwise") { model.updateCodexStatus(); model.command("refresh") }
+                            .labelStyle(.iconOnly).modifier(SystemActionStyle()).help(L("사용량 새로고침")).disabled(!model.state.ready)
                     }
-                    ConnectionSummary(model: model)
-                    if let message = model.error ?? model.state.lastError {
-                        HStack(alignment: .top) {
-                            Label(L(message), systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 0)
-                            Button(L("오류 닫기"), systemImage: "xmark") { model.error = nil; model.command("dismissError") }
-                                .labelStyle(.iconOnly).buttonStyle(.borderless)
-                        }
+                    Menu(L("설정")) {
+                        Toggle(L("Mac 로그인 시 실행"), isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
+                        Divider()
+                        Button(L("종료…")) { model.quit() }
                     }
-                    HStack {
-                        Text(L("계정")).font(.subheadline).fontWeight(.semibold)
-                        Text("\(model.state.accounts.count)").foregroundStyle(.secondary)
-                        Spacer()
-                        Text(L("남은 한도")).foregroundStyle(.secondary)
-                    }.font(.caption)
-                }.measured(.top)
-                ScrollView {
-                    SystemGlassGroup {
+                    .fixedSize().modifier(SystemActionStyle())
+                }
+                ConnectionSummary(model: model)
+                if let message = model.error ?? model.state.lastError {
+                    HStack(alignment: .top) {
+                        Label(L(message), systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        Button(L("오류 닫기"), systemImage: "xmark") { model.error = nil; model.command("dismissError") }
+                            .labelStyle(.iconOnly).buttonStyle(.borderless)
+                    }
+                }
+                HStack {
+                    Text(L("계정")).font(.subheadline).fontWeight(.semibold)
+                    Text("\(model.state.accounts.count)").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(L("남은 한도")).foregroundStyle(.secondary)
+                }.font(.caption)
+            }.measured(.top)
+            ScrollView {
+                SystemGlassGroup {
                     VStack(spacing: 12) {
                         if model.state.accounts.isEmpty { ProgressView().padding() }
                         ForEach(model.state.accounts) { AccountSection(model: model, account: $0) }
                     }
                     .padding(.vertical, 4)
                     .measured(.accounts)
+                }
+            }.frame(height: listHeight).clipped()
+            VStack(spacing: 8) {
+                Divider()
+                HStack {
+                    Menu {
+                        Button(L("브라우저로 로그인")) { model.login() }
+                        Button(L("기기 코드로 로그인")) { model.login(device: true) }
+                    } label: { Label(L("계정 추가"), systemImage: "plus") }
+                        primaryAction: { model.login() }
+                        .fixedSize().modifier(SystemActionStyle())
+                        .disabled(model.busy || model.state.accounts.contains { $0.status == "loggingIn" })
+                    Spacer()
+                    if let updated = model.state.accounts.compactMap({ $0.updatedAt }).max() {
+                        Text(L("%@ 갱신", Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)))
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
-                }.frame(height: listHeight).clipped()
-                VStack(spacing: 8) {
-                    Divider()
-                    HStack {
-                        Menu {
-                            Button(L("브라우저로 로그인")) { model.login() }
-                            Button(L("기기 코드로 로그인")) { model.login(device: true) }
-                        } label: { Label(L("계정 추가"), systemImage: "plus") }
-                            primaryAction: { model.login() }
-                            .fixedSize().modifier(SystemActionStyle())
-                            .disabled(model.busy || model.state.accounts.contains { $0.status == "loggingIn" })
-                        Spacer()
-                        if let updated = model.state.accounts.compactMap({ $0.updatedAt }).max() {
-                            Text(L("%@ 갱신", Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)))
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                }.measured(.footer)
-            }
-            .padding(16)
+                }
+            }.measured(.footer)
+        }
+        .padding(16)
         .frame(width: 360).fixedSize(horizontal: false, vertical: true)
         .font(.callout).controlSize(.small)
         .background(.background)
