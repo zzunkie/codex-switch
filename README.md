@@ -4,11 +4,11 @@
 
 A small macOS menu bar app for choosing which signed-in ChatGPT account handles Codex requests and checking each account's remaining usage.
 
-A bright translucent panel with a faint jade tint, dark text, fine beveled rims, and a static light reflection. The existing macOS popover material supplies the blur; no additional blur view is layered on top. Reduce Transparency switches to an opaque light background.
+An opaque, softly mint-tinted popover with rounded Liquid Glass account cards and compact controls. On macOS 26 and later, the inner surfaces use the system clear-glass material, grouped in one `GlassEffectContainer`. Reduce Transparency switches the cards to opaque surfaces.
 
 SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface follows the Mac’s language preferences: Korean or English, with English as the fallback. Dates and times follow regional settings. Reopen the app after changing its language in macOS. [한국어 안내](README.ko.md)
 
-On macOS 14/15 this is standard translucency with static edge highlights. Dynamic optical refraction is not implemented. Apple’s native Liquid Glass API requires macOS 26 or later.
+macOS 14/15 use standard card surfaces. Building the native glass path requires Xcode 26 / Swift 6.2 or later. The current native UI has been checked on macOS 27. The app adds no screen capture or custom rendering loop.
 
 ## Install
 
@@ -84,6 +84,8 @@ cd codex-switch
 zsh build.sh
 open "dist/Codex Switch.app"
 ```
+
+Set `CODEX_SWITCH_BUILD_DIR` to choose a separate staging directory when an existing build is running. Move the finished app into Applications and keep ZIPs for backups to avoid indexing duplicate app bundles.
 
 The script builds for the host Mac's architecture (Apple Silicon or Intel), downloads a pinned official Node.js runtime, verifies its SHA-256 checksum, and applies a local ad-hoc signature. It does not copy a runtime from another installed app. The first build needs network access.
 

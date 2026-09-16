@@ -15,7 +15,10 @@ jobs:
           node-version: '24.21.0'
       - run: node --test Tests/*.test.mjs
   macos:
-    runs-on: macos-14
+    strategy:
+      matrix:
+        os: [macos-14, macos-26]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - run: zsh build.sh

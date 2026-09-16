@@ -1,7 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 project_dir="${0:A:h}"
-app_path="$project_dir/dist/Codex Switch.app"
+output_dir="${CODEX_SWITCH_BUILD_DIR:-$project_dir/dist}"
+app_path="$output_dir/Codex Switch.app"
 runtime_version="24.21.0"
 architecture="$(uname -m)"
 case "$architecture" in
@@ -44,8 +45,8 @@ cat > "$app_path/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>Codex Switch</string>
 <key>CFBundleDisplayName</key><string>Codex Switch</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.5.0</string>
-<key>CFBundleVersion</key><string>8</string>
+<key>CFBundleShortVersionString</key><string>0.6.0</string>
+<key>CFBundleVersion</key><string>9</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

@@ -106,10 +106,10 @@ struct AppState: Decodable {
         let accountHeight = state.accounts.reduce(0) { height, account in
             let details = expandedAccounts.contains(account.id) ? max(0, account.limits.count - 1) * 76 + 8 : 0
             let exceptional = account.status == "loggingIn" ? 48 : (account.error == nil && account.ordinaryUsageAllowed != false ? 0 : 24)
-            return height + 112 + details + exceptional + (account.status == "loggingIn" ? 0 : 26)
+            return height + 114 + details + exceptional + (account.status == "loggingIn" ? 0 : 26)
         }
         let errorHeight: Int = (error ?? state.lastError) == nil ? 0 : 46
-        return min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 36, CGFloat(172 + max(108, accountHeight) + errorHeight))
+        return min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 36, CGFloat(184 + max(108, accountHeight) + errorHeight))
     }
     func updateCodexStatus() {
         codexRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.openai.codex" }
@@ -201,6 +201,7 @@ struct AppState: Decodable {
     }
     func refreshIfNeeded() {
         updateCodexStatus()
+        guard state.ready else { return }
         if Date().timeIntervalSince(lastRefresh) > 60 { lastRefresh = Date(); command("refresh") }
     }
     func login(device: Bool = false) {
@@ -299,59 +300,52 @@ private enum Palette {
 private let accent = Palette.green
 private let hairline = Palette.graphite.opacity(0.08)
 
-// NSPopover already supplies the behind-window material. These transparent
-// layers add tint and rim lighting without stacking another visual-effect view.
-private struct PanelGlass: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    var body: some View {
-        ZStack {
-            if reduceTransparency { Palette.ivory }
-            else {
-                Palette.ivory.opacity(0.24)
-                Palette.jade.opacity(0.045)
-                LinearGradient(colors: [Palette.jade.opacity(0.07), .clear, Palette.ivory.opacity(0.08)],
-                               startPoint: .topTrailing, endPoint: .bottomLeading)
-                // A broad reflection and a fine inner rim suggest polished
-                // glass without another blur, image capture, or moving shader.
-                LinearGradient(stops: [
-                    .init(color: Color.white.opacity(0.28), location: 0),
-                    .init(color: Color.white.opacity(0.07), location: 0.28),
-                    .init(color: .clear, location: 0.29),
-                    .init(color: .clear, location: 1)
-                ], startPoint: .topLeading, endPoint: .bottomTrailing)
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(LinearGradient(colors: [.white.opacity(0.95), .white.opacity(0.20), Palette.jade.opacity(0.22)],
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-            }
-        }.allowsHitTesting(false)
+// The outer panel stays opaque for readability. Only its interior surfaces
+// use the system's clear Liquid Glass material on macOS 26 and later.
+private struct PanelSurface: View {
+    var body: some View { Color(red: 0.955, green: 0.978, blue: 0.963) }
+}
+
+private struct GlassGroup<Content: View>: View {
+    var content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    @ViewBuilder var body: some View {
+#if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer(spacing: 0) { content }
+        } else { content }
+#else
+        content
+#endif
     }
 }
 
-private struct CardGlass: View {
-    var active: Bool
-    var hover: Bool
+private struct CardSurface: ViewModifier {
+    var active = false
+    var hover = false
+    var radius: CGFloat = 18
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        let rim = contrast == .increased ? Palette.graphite.opacity(0.45) : Color.white.opacity(0.90)
-        ZStack {
-            if reduceTransparency { shape.fill(.white) }
-            shape.fill(LinearGradient(
-                colors: [active ? Palette.jade.opacity(0.09) : Color.white.opacity(hover ? 0.46 : 0.32),
-                         Color.white.opacity(0.12)],
-                startPoint: .topLeading, endPoint: .bottomTrailing))
-            shape.strokeBorder(LinearGradient(
-                stops: [
-                    .init(color: active ? accent.opacity(0.36) : rim, location: 0),
-                    .init(color: Color.white.opacity(0.25), location: 0.40),
-                    .init(color: Palette.graphite.opacity(0.10), location: 0.65),
-                    .init(color: active ? accent.opacity(0.18) : Color.white.opacity(0.60), location: 1)
-                ],
-                startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-            shape.inset(by: 1).strokeBorder(LinearGradient(colors: [Color.white.opacity(0.45), .clear],
-                                                           startPoint: .top, endPoint: .bottom), lineWidth: 1)
-        }.allowsHitTesting(false)
+
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+#if compiler(>=6.2)
+        if #available(macOS 26.0, *), !reduceTransparency {
+            content
+                .glassEffect(.clear, in: shape)
+                .overlay(shape.strokeBorder(outline, lineWidth: 1).allowsHitTesting(false))
+        } else { fallback(content, shape: shape) }
+#else
+        fallback(content, shape: shape)
+#endif
+    }
+    private var outline: Color {
+        if contrast == .increased { return Palette.graphite.opacity(0.45) }
+        return active ? accent.opacity(0.18) : Palette.graphite.opacity(hover ? 0.09 : 0.025)
+    }
+    private func fallback(_ content: Content, shape: RoundedRectangle) -> some View {
+        content.background(Color.white.opacity(reduceTransparency ? 1 : 0.65), in: shape)
+            .overlay(shape.strokeBorder(outline, lineWidth: 1).allowsHitTesting(false))
     }
 }
 
@@ -515,7 +509,7 @@ struct AccountCard: View {
 
         }
         .padding(10)
-        .background(CardGlass(active: effective, hover: hover))
+        .modifier(CardSurface(active: effective, hover: hover))
         .onHover { hover = $0 }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hover)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: effective)
@@ -555,7 +549,7 @@ struct ResetCreditRow: View {
                 .font(.system(size: 10, weight: .medium)).buttonStyle(.plain)
                 .padding(.horizontal, 7).frame(height: 20)
                 .foregroundStyle(available ? accent : Palette.muted)
-                .background(accent.opacity(available ? 0.08 : 0.025), in: RoundedRectangle(cornerRadius: 4))
+                .background(accent.opacity(available ? 0.08 : 0.025), in: Capsule())
                 .disabled(!available || model.busy || account.refreshing == true || account.status != "ready")
                 .accessibilityLabel(pending ? L("%@ 리셋 결과 확인", account.displayName) : L("%@ 리셋권 사용", account.displayName))
         }.foregroundStyle(Palette.secondary).help(help)
@@ -594,8 +588,7 @@ struct ConnectionView: View {
                 Spacer(minLength: 0)
             }
         }.padding(.horizontal, 11).padding(.vertical, 8)
-        .background(Color.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(hairline, lineWidth: 1))
+        .modifier(CardSurface(radius: 14))
         .help(model.state.enabled && model.state.lastCodexRequestAt == nil ? L("아직 Codex 요청이 없습니다. 처음 연결했다면 Codex를 재시작해 주세요.") : verified ? L("최근 응답 %@", Date(timeIntervalSince1970: model.state.lastResponseAt ?? 0).formatted(date: .omitted, time: .shortened)) : L("모델 응답 미확인"))
     }
 }
@@ -603,62 +596,64 @@ struct ConnectionView: View {
 struct PanelView: View {
     @ObservedObject var model: AppModel
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 7) {
-                Image(nsImage: BrandAssets.icon).resizable().interpolation(.high).frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
-                Text("Codex Switch").font(.system(size: 13, weight: .semibold))
-                if model.state.demo { Text("DEMO").font(.system(size: 8, weight: .semibold)).foregroundStyle(Palette.amber) }
-                Spacer()
-                if model.busy { ProgressView().controlSize(.small).frame(width: 26, height: 26) }
-                else { IconButton(symbol: "arrow.clockwise", title: L("사용량 새로고침")) { model.updateCodexStatus(); model.command("refresh") }.disabled(!model.state.ready) }
-                Menu {
-                    Toggle(L("Mac 로그인 시 실행"), isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
-                    Divider()
-                    Button(L("종료…")) { model.quit() }
-                } label: { Image(systemName: "ellipsis").font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.secondary).frame(width: 26, height: 26) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 26).accessibilityLabel(L("설정"))
-            }.padding(.horizontal, 12).padding(.vertical, 9)
-            ConnectionView(model: model).padding(.horizontal, 10)
-            if let message = model.error ?? model.state.lastError {
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "exclamationmark.circle").foregroundStyle(Palette.amber)
-                    Text(L(message)).font(.system(size: 10)).fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    Button { model.error = nil; model.command("dismissError"); model.stateDidChange?() } label: { Image(systemName: "xmark").font(.system(size: 9)) }.buttonStyle(.plain).accessibilityLabel(L("오류 닫기"))
-                }.padding(10).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8)).padding(.horizontal, 10).padding(.top, 6)
-            }
-            HStack(spacing: 5) {
-                Text(L("계정")).font(.system(size: 11, weight: .semibold))
-                Text("\(model.state.accounts.filter { $0.status != "loggingIn" }.count)").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.muted)
-                Spacer()
-                Text(L("남은 한도")).font(.system(size: 10)).foregroundStyle(Palette.secondary)
-            }.padding(.horizontal, 13).padding(.top, 10).padding(.bottom, 6)
-            ScrollView {
-                VStack(spacing: 6) {
-                    if model.state.accounts.isEmpty { ProgressView().controlSize(.small).padding(35) }
-                    ForEach(model.state.accounts) { AccountCard(model: model, account: $0) }
-                }.padding(.horizontal, 10).padding(.bottom, 8)
-            }.frame(maxHeight: .infinity)
-            Rectangle().fill(hairline).frame(height: 1)
-            HStack {
-                Menu {
-                    Button(L("브라우저로 로그인")) { model.login() }
-                    Button(L("기기 코드로 로그인")) { model.login(device: true) }
-                } label: { Label(L("계정 추가"), systemImage: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(accent) }
-                    primaryAction: { model.login() }
-                    .menuStyle(.borderlessButton).fixedSize().disabled(model.busy || model.state.accounts.contains { $0.status == "loggingIn" })
-                Spacer()
-                if let updated = model.state.accounts.compactMap({ $0.updatedAt }).max() {
-                    Text(L("%@ 갱신", Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)))
-                        .font(.system(size: 10)).foregroundStyle(Palette.secondary)
-                        .help(model.state.ready ? L("로컬 프록시 실행 중") : L("로컬 프록시 중지됨"))
+        GlassGroup {
+            VStack(spacing: 0) {
+                HStack(spacing: 7) {
+                    Image(nsImage: BrandAssets.icon).resizable().interpolation(.high).frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
+                    Text("Codex Switch").font(.system(size: 13, weight: .semibold))
+                    if model.state.demo { Text("DEMO").font(.system(size: 8, weight: .semibold)).foregroundStyle(Palette.amber) }
+                    Spacer()
+                    if model.busy { ProgressView().controlSize(.small).frame(width: 26, height: 26) }
+                    else { IconButton(symbol: "arrow.clockwise", title: L("사용량 새로고침")) { model.updateCodexStatus(); model.command("refresh") }.disabled(!model.state.ready) }
+                    Menu {
+                        Toggle(L("Mac 로그인 시 실행"), isOn: Binding(get: { model.loginAtStartup }, set: { model.setLoginAtStartup($0) }))
+                        Divider()
+                        Button(L("종료…")) { model.quit() }
+                    } label: { Image(systemName: "ellipsis").font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.secondary).frame(width: 26, height: 26) }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 26).accessibilityLabel(L("설정"))
+                }.padding(.horizontal, 12).padding(.vertical, 9)
+                ConnectionView(model: model).padding(.horizontal, 10)
+                if let message = model.error ?? model.state.lastError {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.circle").foregroundStyle(Palette.amber)
+                        Text(L(message)).font(.system(size: 10)).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        Button { model.error = nil; model.command("dismissError"); model.stateDidChange?() } label: { Image(systemName: "xmark").font(.system(size: 9)) }.buttonStyle(.plain).accessibilityLabel(L("오류 닫기"))
+                    }.padding(10).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8)).padding(.horizontal, 10).padding(.top, 6)
                 }
+                HStack(spacing: 5) {
+                    Text(L("계정")).font(.system(size: 11, weight: .semibold))
+                    Text("\(model.state.accounts.filter { $0.status != "loggingIn" }.count)").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.muted)
+                    Spacer()
+                    Text(L("남은 한도")).font(.system(size: 10)).foregroundStyle(Palette.secondary)
+                }.padding(.horizontal, 13).padding(.top, 10).padding(.bottom, 6)
+                ScrollView {
+                    VStack(spacing: 8) {
+                        if model.state.accounts.isEmpty { ProgressView().controlSize(.small).padding(35) }
+                        ForEach(model.state.accounts) { AccountCard(model: model, account: $0) }
+                    }.padding(.horizontal, 10).padding(.bottom, 8)
+                }.frame(maxHeight: .infinity)
+                Rectangle().fill(hairline).frame(height: 1)
+                HStack {
+                    Menu {
+                        Button(L("브라우저로 로그인")) { model.login() }
+                        Button(L("기기 코드로 로그인")) { model.login(device: true) }
+                    } label: { Label(L("계정 추가"), systemImage: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(accent) }
+                        primaryAction: { model.login() }
+                        .menuStyle(.borderlessButton).fixedSize().disabled(model.busy || model.state.accounts.contains { $0.status == "loggingIn" })
+                    Spacer()
+                    if let updated = model.state.accounts.compactMap({ $0.updatedAt }).max() {
+                        Text(L("%@ 갱신", Date(timeIntervalSince1970: updated).formatted(date: .omitted, time: .shortened)))
+                            .font(.system(size: 10)).foregroundStyle(Palette.secondary)
+                            .help(model.state.ready ? L("로컬 프록시 실행 중") : L("로컬 프록시 중지됨"))
+                    }
 
-            }.padding(.horizontal, 13).padding(.vertical, 9)
+                }.padding(.horizontal, 13).padding(.vertical, 9)
+            }
         }
         .frame(width: 348, height: model.panelHeight)
         .foregroundStyle(Palette.graphite)
-        .background(PanelGlass())
+        .background(PanelSurface())
         .preferredColorScheme(.light)
         .onAppear { model.refreshIfNeeded() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in model.updateCodexStatus() }
@@ -694,10 +689,10 @@ struct PanelView: View {
         }
         model.start()
         if CommandLine.arguments.contains("--show-popover") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.togglePopover() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.showPopover() }
         }
     }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { togglePopover(); return false }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showPopover(); return false }
     func popoverDidShow(_ notification: Notification) {
         // Opening the panel should not preselect a button. Tab can still enter
         // the normal key-view loop and display its keyboard focus indicator.
@@ -705,13 +700,16 @@ struct PanelView: View {
     }
     @objc func togglePopover() {
         if popover.isShown { popover.performClose(nil) }
-        else if let button = statusItem.button {
+        else { showPopover() }
+    }
+    private func showPopover() {
+        if !popover.isShown, let button = statusItem.button {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            NSApp.activate(ignoringOtherApps: true)
-            popover.contentViewController?.view.window?.makeKey()
-            popover.contentViewController?.view.window?.makeFirstResponder(nil)
-            model.refreshIfNeeded()
         }
+        NSApp.activate(ignoringOtherApps: true)
+        popover.contentViewController?.view.window?.makeKey()
+        popover.contentViewController?.view.window?.makeFirstResponder(nil)
+        model.refreshIfNeeded()
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { model.terminateHelper(); return .terminateNow }
 }
