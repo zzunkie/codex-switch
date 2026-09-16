@@ -1,7 +1,5 @@
 /* UI and helper message translations. */
 "%@ 갱신" = "Updated %@";
-"%@ 모델별 한도 접기" = "Collapse model limits for %@";
-"%@ 모델별 한도 펼치기" = "Expand model limits for %@";
 "%@ 선택" = "Select %@";
 "%@ 초기화" = "Resets %@";
 "%@, %d퍼센트 남음, %@" = "%@, %d percent remaining, %@";
@@ -53,11 +51,8 @@
 "로컬 서비스를 다시 시작하지 못했습니다. 앱을 다시 열어 주세요." = "Could not restart the local service. Reopen the app.";
 "로컬 서비스에 연결하지 못했습니다." = "Could not connect to the local service.";
 "로컬 연결이 종료됐습니다." = "The local connection closed.";
-"로컬 프록시 실행 중" = "Local proxy running";
-"로컬 프록시 중지됨" = "Local proxy stopped";
 "로컬 프록시가 준비되지 않았습니다." = "The local proxy is not ready.";
 "로컬 프록시를 시작하지 못했습니다. 다른 Codex Switch가 실행 중인지 확인해 주세요." = "Could not start the local proxy. Check whether another Codex Switch is running.";
-"모델 응답 미확인" = "No model response verified";
 "모델 응답 실패" = "Model response failed";
 "모델별 한도" = "Model limits";
 "무제한" = "Unlimited";
@@ -78,7 +73,6 @@
 "선택한 계정의 요청이 거절됐습니다. (HTTP %@)" = "The selected account’s request was rejected. (HTTP %@)";
 "선택한 계정의 인증을 확인해 주세요." = "Check the selected account’s sign-in.";
 "설정" = "Settings";
-"아직 Codex 요청이 없습니다. 처음 연결했다면 Codex를 재시작해 주세요." = "No Codex requests yet. Restart Codex if you just enabled routing.";
 "알 수 없는 계정입니다." = "Unknown account.";
 "업무 계정" = "Work account";
 "연결 거절 (HTTP %@)" = "Connection rejected (HTTP %@)";
@@ -93,7 +87,6 @@
 "응답 미확인" = "Response not verified";
 "응답 확인" = "Response verified";
 "응답이 늦어지고 있습니다. 다시 시도해 주세요." = "The request timed out. Please try again.";
-"이 계정으로 요청" = "Use this account for requests";
 "이 앱에서 계정을 제거할까요?" = "Remove this account from Codex Switch?";
 "작업을 완료하지 못했습니다." = "Could not complete the action.";
 "제거" = "Remove";
@@ -103,7 +96,6 @@
 "진행 중인 로그인을 완료하거나 취소해 주세요." = "Finish or cancel the current sign-in first.";
 "진행 중인 요청 %d개가 중단될 수 있습니다. 종료 후 Codex를 다시 시작하면 원래 연결로 돌아갑니다." = "Quitting may interrupt %d active requests. Restart Codex afterward to use the original connection.";
 "초기화 시간 미제공" = "Reset time unavailable";
-"최근 응답 %@" = "Last response %@";
 "추가 계정" = "Added account";
 "취소" = "Cancel";
 "크레딧 %@" = "Credits %@";

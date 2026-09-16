@@ -4,11 +4,11 @@
 
 A small macOS menu bar app for choosing which signed-in ChatGPT account handles Codex requests and checking each account's remaining usage.
 
-An opaque, softly mint-tinted popover with rounded Liquid Glass account cards and compact controls. On macOS 26 and later, the inner surfaces use the system clear-glass material, grouped in one `GlassEffectContainer`. Reduce Transparency switches the cards to opaque surfaces.
+A native menu-bar interface using the system palette, default Liquid Glass surfaces and buttons, and standard capacity gauges. The opaque main panel uses the system background; light/dark appearance and accessibility behavior follow macOS. Custom color palettes, painted borders, hover layers, and hand-drawn progress bars have been removed.
 
 SwiftUI/AppKit, a local proxy, and no npm dependencies. The interface follows the Mac’s language preferences: Korean or English, with English as the fallback. Dates and times follow regional settings. Reopen the app after changing its language in macOS. [한국어 안내](README.ko.md)
 
-macOS 14/15 use standard card surfaces. Building the native glass path requires Xcode 26 / Swift 6.2 or later. The current native UI has been checked on macOS 27. The app adds no screen capture or custom rendering loop.
+macOS 14/15 use standard card surfaces. Building the native glass path requires Xcode 26 / Swift 6.2 or later. The current UI targets macOS 27 and retains a standard-material fallback on macOS 14/15. The app adds no screen capture or custom rendering loop.
 
 ## Install
 

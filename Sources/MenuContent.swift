@@ -214,7 +214,8 @@ private struct ConnectionSummary: View {
         Toggle(isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") })) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(L("계정 라우팅")).font(.headline)
-                Text(status).font(.caption).foregroundStyle(.secondary)
+                Text([model.codexRunning ? L("Codex 실행 중") : L("Codex 종료됨"), status, verified ? model.state.lastModel ?? "" : ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .toggleStyle(.switch).disabled(!model.state.ready || model.busy)

@@ -2,7 +2,8 @@
 
 Keep changes focused: this is a small native menu bar utility.
 
-- UI: `Sources/CodexSwitch.swift` (SwiftUI and AppKit).
+- Native UI: `Sources/MenuContent.swift`.
+- App lifecycle and model: `Sources/CodexSwitch.swift` (SwiftUI and AppKit).
 - Accounts and helper IPC: `Backend/accounts.mjs`, `rpc.mjs`, and `main.mjs`.
 - Reset confirmation and durable request recovery: `Backend/resets.mjs`.
 - Configuration recovery: `Backend/config.mjs`.
