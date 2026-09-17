@@ -33,7 +33,7 @@ private struct SystemGlassGroup<Content: View>: View {
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     @ViewBuilder var body: some View {
 #if compiler(>=6.2)
-        if #available(macOS 26.0, *) { GlassEffectContainer(spacing: 8) { content } }
+        if #available(macOS 26.0, *) { GlassEffectContainer(spacing: 0) { content } }
         else { content }
 #else
         content
@@ -90,7 +90,7 @@ private struct AccountSection: View {
         model.busy || account.status == "loggingIn" || (account.status == "signedOut" && account.isCurrent != true)
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Button { model.command("select", ["id": account.id]) } label: {
                     HStack {
@@ -145,7 +145,7 @@ private struct AccountSection: View {
                 Text(L(error)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding()
+        .padding(12)
         .modifier(SystemGlassSurface())
         .accessibilityIdentifier("account-\(account.id)")
     }
@@ -223,7 +223,7 @@ private struct ConnectionSummary: View {
             Toggle(L("계정 라우팅"), isOn: Binding(get: { model.state.enabled }, set: { model.command($0 ? "enable" : "disable") }))
                 .labelsHidden().toggleStyle(.switch).disabled(!model.state.ready || model.busy)
         }
-        .padding().modifier(SystemGlassSurface())
+        .padding(12).modifier(SystemGlassSurface())
     }
 }
 
@@ -245,11 +245,11 @@ struct PanelView: View {
     @State private var sizes: [MenuArea: CGFloat] = [:]
     private var listHeight: CGFloat {
         let maximum = min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 40)
-        return min(sizes[.accounts] ?? 160, max(100, maximum - (sizes[.top] ?? 130) - (sizes[.footer] ?? 40) - 56))
+        return min(sizes[.accounts] ?? 160, max(100, maximum - (sizes[.top] ?? 130) - (sizes[.footer] ?? 40) - 40))
     }
     var body: some View {
-        VStack(spacing: 12) {
-            VStack(spacing: 12) {
+        VStack(spacing: 8) {
+            VStack(spacing: 8) {
                 HStack {
                     Image(nsImage: BrandAssets.icon).resizable().frame(width: 24, height: 24).accessibilityLabel(L("Codex Switch 로고"))
                     Text("Codex Switch").font(.headline)
@@ -283,17 +283,20 @@ struct PanelView: View {
                     Spacer()
                     Text(L("남은 한도")).foregroundStyle(.secondary)
                 }.font(.caption)
-            }.measured(.top)
+            }.padding(.horizontal, 16).measured(.top)
             ScrollView {
                 SystemGlassGroup {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         if model.state.accounts.isEmpty { ProgressView().padding() }
                         ForEach(model.state.accounts) { AccountSection(model: model, account: $0) }
                     }
-                    .padding(.vertical, 4)
-                    .measured(.accounts)
                 }
-            }.frame(height: listHeight).clipped()
+                // Keep the glass rim and its shadow inside the scroll viewport.
+                // Padding belongs outside the glass group, not outside ScrollView.
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .measured(.accounts)
+            }.frame(height: listHeight)
             VStack(spacing: 8) {
                 Divider()
                 HStack {
@@ -310,9 +313,9 @@ struct PanelView: View {
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
-            }.measured(.footer)
+            }.padding(.horizontal, 16).measured(.footer)
         }
-        .padding(16)
+        .padding(.vertical, 12)
         .frame(width: 360).fixedSize(horizontal: false, vertical: true)
         .font(.callout).controlSize(.small)
         .background(.background)
