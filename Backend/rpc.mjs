@@ -21,6 +21,8 @@ export class CodexRPC extends EventEmitter {
     return this.starting;
   }
   async _start() {
+    const binary = typeof this.binary === "function" ? this.binary() : this.binary;
+    if (!binary) throw new Error("Codex 앱 또는 CLI를 먼저 설치해 주세요.");
     const env = Object.fromEntries(
       ["HOME", "PATH", "TMPDIR", "LANG", "LC_ALL"]
         .filter((k) => process.env[k])
@@ -47,7 +49,7 @@ export class CodexRPC extends EventEmitter {
       "check_for_update_on_startup=false",
     ];
     if (!this.primary) args.push("-c", 'cli_auth_credentials_store="file"');
-    this.child = spawn(this.binary, args, {
+    this.child = spawn(binary, args, {
       env,
       cwd: this.home,
       stdio: ["pipe", "pipe", "ignore"],
@@ -84,7 +86,7 @@ export class CodexRPC extends EventEmitter {
         clientInfo: {
           name: "codex_switch",
           title: "Codex Switch",
-          version: "0.7.1",
+          version: "0.7.2",
         },
       },
       20000,

@@ -50,7 +50,7 @@ test("reset count distinguishes unavailable data from zero; only core 5h/week wi
   assert.equal(
     resetSummary({
       rateLimits: {
-        limitId: "codex_spark",
+        limitId: "codex_example",
         primary: { usedPercent: 100, windowDurationMins: 300 },
       },
     }).eligible,
@@ -77,7 +77,7 @@ test("reset count distinguishes unavailable data from zero; only core 5h/week wi
   assert.equal(
     resetSummary({
       rateLimits: { primary: w(100) },
-      rateLimitsByLimitId: { spark: { primary: w(100) } },
+      rateLimitsByLimitId: { example: { primary: w(100) } },
     }).eligible,
     false,
   );
@@ -85,7 +85,7 @@ test("reset count distinguishes unavailable data from zero; only core 5h/week wi
     resetSummary({
       rateLimitsByLimitId: {
         codex: { primary: w(50) },
-        spark: { primary: w(100) },
+        example: { primary: w(100) },
       },
     }).eligible,
     false,

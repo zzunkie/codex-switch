@@ -59,6 +59,8 @@ Codex → 127.0.0.1 proxy → Codex backend
 
 The native menu bar popover talks to its bundled Node helper over standard input/output. The helper uses the installed `codex app-server` for login, token refresh, and quota reads. It changes the root `openai_base_url` in the existing Codex configuration while routing is enabled.
 
+The helper prefers the Codex CLI bundled with the desktop app and falls back to a Homebrew CLI. It checks the executable path again whenever an account server starts, so it can use a relocated CLI after a desktop app update.
+
 - The proxy binds only to loopback, uses a random route secret, rejects browser Origin headers, and forwards only explicitly supported paths to a fixed upstream.
 - Additional account credentials stay in separate Codex homes under `~/Library/Application Support/Codex Switch/accounts/`, with restricted file permissions. The account list stores only names, email addresses, and plan labels.
 - The original Codex credential store is reused. Its login is not copied into an added account or replaced.
@@ -106,7 +108,7 @@ To inspect the UI with synthetic accounts:
 open -n "dist/Codex Switch.app" --args --demo --show-popover --state-directory="$(mktemp -d)"
 ```
 
-The demo does not sign in or modify the real Codex configuration. Production account routing and image generation/editing have been exercised locally with Codex CLI `0.154.0-alpha.6.2`; CI uses mocks and does not establish live-service compatibility.
+The demo does not sign in or modify the real Codex configuration. Production account routing and image generation/editing have been exercised locally with Codex CLI `0.154.0-alpha.6.2`. Account, authentication, and rate-limit reads were also checked with the desktop-bundled CLI `0.158.0-alpha.2.1`; model requests and additional-account routing were not retested with that version. CI uses mocks and does not establish live-service compatibility.
 
 ## Contributing
 

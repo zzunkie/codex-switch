@@ -7,6 +7,7 @@ import { Accounts } from "./accounts.mjs";
 import { ResetCredits } from "./resets.mjs";
 import { RoutingProxy } from "./proxy.mjs";
 import { ConfigLink, atomicWrite } from "./config.mjs";
+import { findCodexBinary } from "./binary.mjs";
 
 const demo = process.argv.includes("--demo");
 const stateArg = process.argv.find((a) => a.startsWith("--state-directory="));
@@ -47,13 +48,6 @@ function releaseLock() {
 }
 process.on("exit", releaseLock);
 const primaryHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
-const binaryCandidates = [
-  "/Applications/ChatGPT.app/Contents/Resources/codex",
-  "/Applications/Codex.app/Contents/Resources/codex",
-  "/opt/homebrew/bin/codex",
-  "/usr/local/bin/codex",
-];
-const binary = binaryCandidates.find((p) => fs.existsSync(p));
 const settingsFile = path.join(directory, "settings.json");
 let settings = {
   selected: "current",
@@ -78,7 +72,7 @@ if (
 const save = () => {
   if (!demo) atomicWrite(settingsFile, JSON.stringify(settings));
 };
-const accounts = new Accounts({ directory, primaryHome, binary });
+const accounts = new Accounts({ directory, primaryHome, binary: findCodexBinary });
 const link = new ConfigLink(path.join(primaryHome, "config.toml"), directory);
 const proxy = new RoutingProxy({
   credentials: (id, force) => accounts.credentials(id, force),
@@ -137,7 +131,7 @@ function snapshot() {
     enabled,
     selected: settings.selected,
     port: proxy.port,
-    binaryAvailable: !!binary,
+    binaryAvailable: !!findCodexBinary(),
     accounts: accounts.list().map((a) => ({
       ...a,
       resetCredits: {
@@ -199,7 +193,7 @@ async function action(method, p = {}) {
   }
   if (method === "login") {
     if (demo) throw new Error("미리보기에서는 로그인하지 않습니다.");
-    if (!binary) throw new Error("Codex 앱 또는 CLI를 먼저 설치해 주세요.");
+    if (!findCodexBinary()) throw new Error("Codex 앱 또는 CLI를 먼저 설치해 주세요.");
     return accounts.startLogin(p.mode);
   }
   if (method === "cancelLogin") {
@@ -231,7 +225,7 @@ async function action(method, p = {}) {
   }
   if (method === "enable") {
     if (!ready) throw new Error("로컬 프록시가 준비되지 않았습니다.");
-    if (!binary && !demo) throw new Error("Codex 앱 또는 CLI가 필요합니다.");
+    if (!findCodexBinary() && !demo) throw new Error("Codex 앱 또는 CLI가 필요합니다.");
     if (!demo) {
       if (settings.selected !== "current")
         await accounts.credentials(settings.selected);
@@ -327,8 +321,8 @@ if (demo) {
       limits: [
         ...pro(92),
         {
-          id: "codex_spark",
-          name: "Codex Spark",
+          id: "codex_example",
+          name: "Example model",
           primary: weekly(64),
           secondary: null,
         },
@@ -375,7 +369,7 @@ try {
 }
 save();
 changed();
-if (!demo && binary) accounts.refreshAll().catch(() => {});
+if (!demo && findCodexBinary()) accounts.refreshAll().catch(() => {});
 const poll = setInterval(() => {
   if (enabled && !demo) accounts.refresh(settings.selected).catch(() => {});
 }, 120000);
